@@ -1,0 +1,15 @@
+[submodule "crates/sl-core"]
+	path = crates/sl-core
+	url = https://github.com/SeekStarAI/sl-core.git
+[submodule "crates/sl-device"]
+	path = crates/sl-device
+	url = https://github.com/SeekStarAI/sl-device.git
+[submodule "crates/sl-graph"]
+	path = crates/sl-graph
+	url = https://github.com/SeekStarAI/sl-graph.git
+[submodule "crates/sl-precision"]
+	path = crates/sl-precision
+	url = https://github.com/SeekStarAI/sl-precision.git
+[submodule "services/sl-daemon"]
+	path = services/sl-daemon
+	url = https://github.com/SeekStarAI/sl-daemon.git
