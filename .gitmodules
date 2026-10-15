@@ -13,3 +13,6 @@
 [submodule "services/sl-daemon"]
 	path = services/sl-daemon
 	url = https://github.com/SeekStarAI/sl-daemon.git
+[submodule "crates/sl-model"]
+	path = crates/sl-model
+	url = https://github.com/SeekStarAI/sl-model.git
