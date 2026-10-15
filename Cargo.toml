@@ -4,6 +4,7 @@ members = [
     "crates/sl-core",
     "crates/sl-device",
     "crates/sl-graph",
+    "crates/sl-model",
     "crates/sl-precision",
     "crates/backends/backend-cpu",
     "crates/backends/backend-vulkan",
@@ -20,4 +21,5 @@ documentation = "docs/README.md"
 sl-core = { path = "crates/sl-core" }
 sl-device = { path = "crates/sl-device" }
 sl-graph = { path = "crates/sl-graph" }
+sl-model = { path = "crates/sl-model" }
 sl-precision = { path = "crates/sl-precision" }
