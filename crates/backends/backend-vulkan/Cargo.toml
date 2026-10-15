@@ -1,0 +1,13 @@
+[package]
+name = "starlight-backend-vulkan"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Vulkan compute backend for the StarLight inference engine."
+repository = "https://github.com/SeekStarAI/StarLight"
+readme = "README.md"
+publish = false
+
+[dependencies]
+sl-device = "0.1.0"
+sl-precision = "0.1.0"

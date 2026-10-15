@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/sl-core",
+    "crates/sl-device",
+    "crates/sl-graph",
+    "crates/sl-precision",
+    "crates/backends/backend-cpu",
+    "crates/backends/backend-vulkan",
+    "services/sl-daemon",
+    "distros/starlight-nano",
+    "distros/starlight-cluster",
+]
+
+[workspace.metadata.starlight]
+description = "Modular Rust workspace for the StarLight inference engine."
+documentation = "docs/README.md"
+
+[patch.crates-io]
+sl-core = { path = "crates/sl-core" }
+sl-device = { path = "crates/sl-device" }
+sl-graph = { path = "crates/sl-graph" }
+sl-precision = { path = "crates/sl-precision" }

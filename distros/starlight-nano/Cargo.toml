@@ -1,0 +1,18 @@
+[package]
+name = "starlight-nano"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Minimal edge-device distribution of the StarLight inference engine."
+repository = "https://github.com/SeekStarAI/StarLight"
+readme = "README.md"
+publish = false
+
+[dependencies]
+sl-core = "0.1.0"
+starlight-backend-cpu = { path = "../../crates/backends/backend-cpu" }
+starlight-backend-vulkan = { path = "../../crates/backends/backend-vulkan", optional = true }
+
+[features]
+default = []
+vulkan = ["dep:starlight-backend-vulkan"]

@@ -1,0 +1,13 @@
+[package]
+name = "starlight-cluster"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Cluster distribution of the StarLight inference engine."
+repository = "https://github.com/SeekStarAI/StarLight"
+readme = "README.md"
+publish = false
+
+[dependencies]
+sl-core = "0.1.0"
+sl-daemon = { path = "../../services/sl-daemon" }
