@@ -50,6 +50,7 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 | 组件 | 职责 | 在推理链路中的位置 |
 | --- | --- | --- |
 | `sl-model` | 定义格式无关的模型包、张量元数据和数据视图，并提供模型格式读取适配 | 读取与规范化模型输入 |
+| `sl-model-adapters` | 将通用模型包按模型家族 lowering 为计算图描述与权重绑定 | 连接模型表示和通用图；当前仓库已接入但尚无 Cargo 包/API |
 | `sl-precision` | 提供量化、反量化及精度相关数据处理工具 | 离线或加载阶段的权重准备；不属于 `sl-core` 单步执行热路径 |
 | `sl-graph` | StarLight Graph；表达计算拓扑并规划图执行和内存布局 | 形成可供运行时与后端执行的计算图 |
 | `sl-device` | 定义设备、缓冲区、队列等虚拟设备接口（VDI）契约 | 隔离图执行与具体硬件实现 |
@@ -78,6 +79,7 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 StarLight/
 ├── crates/
 │   ├── sl-model/             # 模型数据结构与格式适配
+│   ├── sl-model-adapters/    # 模型家族到通用图的适配（独立 submodule）
 │   ├── sl-precision/         # 量化、反量化与精度工具
 │   ├── sl-graph/             # StarLight Graph 图执行与规划组件
 │   ├── sl-device/            # 虚拟设备接口契约
@@ -92,19 +94,20 @@ StarLight/
     └── golden-baselines/     # 跨组件数值基准数据
 ```
 
-其中 `sl-core`、`sl-device`、`sl-graph`、`sl-model`、`sl-precision` 和 `sl-daemon` 是独立 Git 仓库，作为 Git submodule 接入。StarLight 主仓库只记录各 submodule 的仓库 URL 与固定提交，不纳入它们的源文件；递归克隆后，submodule 内容会检出到对应目录，供 Cargo workspace 组合构建。其他路径是否为独立仓库，以 `.gitmodules` 和 Git 索引为准。各组件通过 Rust crate 边界组织；具体发布、依赖和开发约定以对应组件文档为准。
+其中 `sl-core`、`sl-device`、`sl-graph`、`sl-model`、`sl-model-adapters`、`sl-precision` 和 `sl-daemon` 是独立 Git 仓库，作为 Git submodule 接入。StarLight 主仓库只记录各 submodule 的仓库 URL 与固定提交，不纳入它们的源文件；递归克隆后，submodule 内容会检出到对应目录。只有具备 Cargo manifest 并列入根 workspace 的组件才参与 Cargo workspace 构建；`sl-model-adapters` 当前尚无 Cargo package，因此暂未列入 workspace。其他路径是否为独立仓库，以 `.gitmodules` 和 Git 索引为准。各组件通过 Rust crate 边界组织；具体发布、依赖和开发约定以对应组件文档为准。
 
 ## 当前实现状态
 
 StarLight 仍处于基础能力建设阶段。README 描述的是组件定位和目标协作方式，不应视为所有架构能力均已实现。
 
 - `sl-model` 已提供模型包与张量数据契约，并有 Safetensors reader；格式支持仍在扩展。
+- `sl-model-adapters` 已作为独立 submodule 接入，但当前仅有仓库说明和许可证，尚无 Cargo package、公开 API 或适配实现。
 - `sl-precision` 已提供对称分组 INT4/INT8 量化与反量化能力，并包含 Safetensors 量化命令行工具。
 - `sl-graph`、`sl-core`、`sl-device`、`sl-daemon` 和当前 CPU/Vulkan 后端仍在基线或骨架阶段。StarLight Graph 的并发图执行能力、完整设备执行链路及服务端调度能力需以实际实现和测试为准。
 - CUDA、NPU、分布式通信等属于可扩展方向；当前 workspace 不包含已实现的 CUDA 后端或通信组件。
 - `starlight-nano` 与 `starlight-cluster` 当前为装配入口骨架，具体可用能力随底层组件实现逐步增加。
 
-如需了解架构目标与工程拆分，请阅读 [文档索引](docs/README.md)、[架构哲学说明](<docs/PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>) 和 [系统工程与架构规划](<docs/RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)。规划文档中的设计目标不自动代表已交付功能。
+如需了解模块边界与发行版管线，请阅读 [ARCH-0002：模块边界与发行版业务管线契约](<docs/ARCH-0002: 模块边界与发行版业务管线契约.md>)；模型制品、多模态输入和流式推理的数据边界见 [ARCH-0003：模型制品与多模态推理数据流设计](<docs/ARCH-0003: 模型制品与多模态推理数据流设计.md>)。其他架构文档见[文档索引](docs/README.md)；早期规划中的设计目标不自动代表已交付功能。
 
 ## 开始使用
 
