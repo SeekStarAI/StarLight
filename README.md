@@ -1,119 +1,146 @@
+# StarLight
 
----
+StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目。它不是一个把模型格式、算子实现、执行引擎、请求服务和分布式通信全部封装在一起的单体引擎，而是一组边界清晰、可独立演进并可按场景组合的基础组件。
 
-# 🌟 StarLight (星光推理引擎)
+项目维护模型格式支持、精度转换工具、并发计算图引擎、设备接口与计算内核、推理运行时和调度服务等组件。围绕主流推理场景，StarLight 再将这些组件组装为不同的发行版。部署方可以按设备与服务形态选用所需组件，也可以替换后端、调度器或通信实现。
 
-**StarLight** 是由 **SeekStarAI 实验室 (SeekStarAI)** 研发的新一代大模型（LLM）高性能推理引擎底座。
+## 设计目标
 
-我们拒绝传统深度学习框架“单体巨石（Monolithic）”式的沉重包袱，回归系统级软件工程本质。StarLight 将 **GNU/Linux 的微内核与机制/策略分离哲学**、**Vulkan 的显式无锁管线** 以及 **现代图形学 TBDR（Tile-Based Deferred Rendering）的片上驻留思想** 深度融合，打造出一套既能裁剪为几兆大小塞进家用 AIPC，又能水平扩展至大规模裸金属商业集群的模块化推理基础设施。
+- **组件化，而非单体化：** 模型读写、精度处理、图执行、设备后端、请求编排和发行版入口各有职责边界。组件之间通过明确的数据结构和接口协作。
+- **以图组织计算：** 自研 `sl-graph`（StarLight Graph）面向并发图执行，目标是提供计算图构建、依赖管理、编译与执行组织能力，对标 CUDA Graph、CGraph 等图执行方案。它是 StarLight 推理执行链路的核心组件之一，不等同于整个 StarLight 项目。
+- **面向不同设备：** `sl-device` 定义设备抽象契约，后端负责将图中的计算映射为目标设备上的内核执行。CPU、Vulkan 以及后续可接入的 GPU、NPU 或第三方实现属于可替换的后端选择；“any device”是接口与生态建设目标，不表示当前已支持所有设备。
+- **将控制面与计算面分开：** 图引擎与设备后端组织计算；运行时负责装配模型和驱动执行；调度器负责请求、资源和任务编排。发行版可以包含或省略服务端调度与分布式通信设施。
+- **支持按场景组装：** 端侧与集群推理对进程模型、调度、通信和设备的需求不同，StarLight 通过发行版组合这些基础组件，而不是要求所有部署共享同一套完整运行时。
 
----
+## 推理组件如何协作
 
-## ⚡ 核心设计特性 (Key Highlights)
-
-* **🧩 彻底的微内核与发行版组装（Microkernel & Distros）**
-核心层（`sl-core`）仅负责虚拟页表寻址与无状态单步推进（`step`），不包含任何网络协议或业务排队逻辑。通过组合不同外围组件，只需几十行装配代码即可构建面向端侧的 `StarLight-Nano` 或面向高并发服务器的 `StarLight-Cluster`。
-* **🔥 零运行时堆内存分配（Zero-Allocation at Runtime）**
-在图编译期通过区间图着色算法（Interval Coloring）完成全局 `Scratchpad` 激活值内存复用规划。单步推理热路径上严格执行 **`0 malloc`** 门禁，彻底消除运行时内存碎片与延迟毛刺（Jitter）。
-* **🛡️ TBDR 启发的片上驻留与预剔除（Tile Residency & Early Culling）**
-针对 Decode 阶段极端的 Memory-Bound 瓶颈，引入显式暂存缓冲（`TransientBuffer`）语义，将局部注意力计算约束在硬件片上缓存（SRAM / Shared Memory / L1-L2 Cache）内，结合粗粒度可见性测试提前剪除低贡献 KV 块加载。
-* **🗺️ 硬件级稀疏页表映射（Sparse PagedAttention）**
-借鉴 Vulkan Sparse Binding 机制，实现逻辑连续、物理离散的 KV-Cache 管理，配合硬件感知的权重交织重排（`sl-precision`），确保底层 SIMD / Tensor Core 始终处于满带宽对齐流式访存状态。
-* **🔌 统一虚拟设备接口（VDI - Virtual Device Interface）**
-通过零成本的 Rust `Trait` 抽象底层算力。原生支持手写 AVX2/AVX-512/NEON 的纯 CPU 后端、跨平台 Vulkan Compute 后端，以及专有硬件（CUDA / ROCm / 第三方 NPU）的无侵入插件化挂载。
-
----
-
-## 🏗️ 系统架构与模块拓扑 (Architecture & Modules)
-
-本仓库作为 StarLight 的**主控工作区（Workspace）與发行版装配中心**，通过 Git Submodules 聚合了 SeekStarAI 旗下各个可独立演进、独立开源的核心组件库：
+典型推理链路由离线准备、执行和服务编排组成。具体发行版可以裁剪步骤或替换其中的组件。
 
 ```text
-SeekStarAI/StarLight (主控仓库)
-├── docs/                         # 📚 架构哲学、RFC 工程规范与决策档案库
-├── crates/                       # 🧱 核心微内核与独立开源基座 (Git Submodules)
-│   ├── sl-precision/             #   ├─ [工具链] 硬件感知量化、交织重排与精度校准引擎
-│   ├── sl-graph/                 #   ├─ [编译器] 静态 DAG 融合、TBDR 标记与内存着色规划器
-│   ├── sl-device/                #   ├─ [驱动层] VDI 虚拟硬件抽象接口契约 (Traits)
-│   ├── sl-core/                  #   ├─ [微内核] 无状态单步驱动器与 PagedKV 虚拟内存管理
-│   └── backends/                 #   └─ [硬后端] 插件式算子实现
-│       ├── backend-cpu/          #        ├─ 纯 Rust 手写 SIMD 内核 (AVX2/AVX-512/AMX/NEON)
-│       ├── backend-vulkan/       #        ├─ 跨平台 SPIR-V 通用计算后端
-│       └── backend-cuda/         #        └─ 面向 NVIDIA GPU 的 Tile 特化后端
+模型文件
+   │
+   ├── 模型格式读取与适配工具（sl-model 及配套工具）
+   │        │
+   │        └── 格式无关的模型描述、张量与权重数据
+   │
+   ├── 精度转换工具（sl-precision）
+   │        └── 量化、反量化及面向后端的数据布局准备
+   │
+   └── StarLight Graph（sl-graph）
+            └── 构建、编译并组织并发计算图
+                     │
+              运行时与调度器
+              （sl-core / sl-daemon 或外部调度器）
+                     │
+              sl-device 设备接口
+                     │
+              后端与计算内核
+              （backend-cpu / backend-vulkan / 后续后端）
+                     │
+              目标设备上的推理执行
+
+可选：分布式通信组件连接多设备或多节点执行，
+      由采用该能力的发行版按需装配。
+```
+
+模型格式适配解决“模型如何进入系统”；精度工具解决“权重如何表示、转换和供后端使用”；StarLight Graph 负责“计算如何形成可执行的图”；设备接口与后端负责“计算如何落到硬件”；运行时、调度器以及可选通信组件负责“任务如何被驱动、编排和扩展”。这些组件共同构成推理基础设施，任何单个 crate 都不代表整个 StarLight。
+
+## 组件与职责
+
+| 组件 | 职责 | 在推理链路中的位置 |
+| --- | --- | --- |
+| `sl-model` | 定义格式无关的模型包、张量元数据和数据视图，并提供模型格式读取适配 | 读取与规范化模型输入 |
+| `sl-precision` | 提供量化、反量化及精度相关数据处理工具 | 离线或加载阶段的权重准备；不属于 `sl-core` 单步执行热路径 |
+| `sl-graph` | StarLight Graph；表达计算拓扑并规划图执行和内存布局 | 形成可供运行时与后端执行的计算图 |
+| `sl-device` | 定义设备、缓冲区、队列等虚拟设备接口（VDI）契约 | 隔离图执行与具体硬件实现 |
+| `backend-cpu` | CPU 设备后端与计算内核实现入口 | 将计算映射至 CPU |
+| `backend-vulkan` | Vulkan 设备后端与计算内核实现入口 | 将计算映射至支持 Vulkan 的设备 |
+| `sl-core` | 装配模型、图与设备，并提供核心推理执行路径 | 驱动模型计算 |
+| `sl-daemon` | 集群场景的服务进程与请求编排入口 | 在运行时外围管理会话、调度和服务生命周期 |
+| `starlight-nano` | 面向端侧场景的发行版装配入口 | 选择适合端侧的运行时与后端组件 |
+| `starlight-cluster` | 面向服务器与集群场景的发行版装配入口 | 组合服务端调度、运行时和集群所需扩展 |
+| 分布式通信扩展 | 为跨设备、跨卡或跨节点执行提供通信能力 | 由需要分布式推理的发行版选择性接入 |
+
+通信能力是可选的外围设施，不是所有推理任务的必需依赖，也不应与图引擎或设备内核混为一体。调度器同样可以由 StarLight 服务组件提供，或由部署环境中的外部系统承担。
+
+## 发行版
+
+发行版是针对目标环境选择和组装组件的交付形态，不是另一个独立的推理引擎。当前 workspace 提供两个发行版入口：
+
+- **StarLight-Nano**（`distros/starlight-nano`）：面向端侧、AIPC 和嵌入式环境，优先考虑轻量部署与进程内执行。具体支持的设备和绑定能力取决于后端与发行版实现进度。
+- **StarLight-Cluster**（`distros/starlight-cluster`）：面向服务器及集群推理，可组合 `sl-daemon`、设备后端和后续的分布式通信组件。集群调度与跨节点能力按需引入，不是 `sl-core` 的职责。
+
+这两个目录目前是装配入口骨架，不能据此推断端侧或集群功能已经完整可用。发行版的目标是把经过验证的组件组合成便于使用和部署的方案。
+
+## 仓库结构
+
+```text
+StarLight/
+├── crates/
+│   ├── sl-model/             # 模型数据结构与格式适配
+│   ├── sl-precision/         # 量化、反量化与精度工具
+│   ├── sl-graph/             # StarLight Graph 图执行与规划组件
+│   ├── sl-device/            # 虚拟设备接口契约
+│   └── backends/             # 设备后端与计算内核
 ├── services/
-│   └── sl-daemon/                # ⚙️ Master-Worker 进程监管、IPC 共享内存与动态批处理调度器
-├── distros/                      # 📦 官方发行版装配入口 (Distributions)
-│   ├── starlight-nano/           #   ├─ 端侧/AIPC 极简直通发行版 (含 PyO3 绑定)
-│   └── starlight-cluster/        #   └─ 商业裸金属集群高并发服务发行版
+│   └── sl-daemon/            # 集群服务与请求编排入口
+├── distros/
+│   ├── starlight-nano/       # 端侧发行版入口
+│   └── starlight-cluster/    # 集群发行版入口
+├── docs/                     # 架构说明、设计哲学与工程规划
 └── tests/
-    └── golden-baselines/         # 🎯 跨模块联合调试的标准数值基准快照
-
+    └── golden-baselines/     # 跨组件数值基准数据
 ```
 
----
+其中 `sl-core`、`sl-device`、`sl-graph`、`sl-model`、`sl-precision` 和 `sl-daemon` 是独立 Git 仓库，作为 Git submodule 接入。StarLight 主仓库只记录各 submodule 的仓库 URL 与固定提交，不纳入它们的源文件；递归克隆后，submodule 内容会检出到对应目录，供 Cargo workspace 组合构建。其他路径是否为独立仓库，以 `.gitmodules` 和 Git 索引为准。各组件通过 Rust crate 边界组织；具体发布、依赖和开发约定以对应组件文档为准。
 
-## 📖 架构文档与工程档案 (Documentation Index)
+## 当前实现状态
 
-**强烈建议所有团队成员与贡献者在编写代码前，先阅读 `/docs` 目录下的核心档案：**
+StarLight 仍处于基础能力建设阶段。README 描述的是组件定位和目标协作方式，不应视为所有架构能力均已实现。
 
-* 🧭 [文档导航总首页 (docs/README.md)](docs/README.md)
-* **💡 架构哲学备忘录**
-* **[PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU/Linux”？](<docs/PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>)** — 理解微内核解耦思想与“50 行代码造发行版”的组装逻辑。
+- `sl-model` 已提供模型包与张量数据契约，并有 Safetensors reader；格式支持仍在扩展。
+- `sl-precision` 已提供对称分组 INT4/INT8 量化与反量化能力，并包含 Safetensors 量化命令行工具。
+- `sl-graph`、`sl-core`、`sl-device`、`sl-daemon` 和当前 CPU/Vulkan 后端仍在基线或骨架阶段。StarLight Graph 的并发图执行能力、完整设备执行链路及服务端调度能力需以实际实现和测试为准。
+- CUDA、NPU、分布式通信等属于可扩展方向；当前 workspace 不包含已实现的 CUDA 后端或通信组件。
+- `starlight-nano` 与 `starlight-cluster` 当前为装配入口骨架，具体可用能力随底层组件实现逐步增加。
 
+如需了解架构目标与工程拆分，请阅读 [文档索引](docs/README.md)、[架构哲学说明](<docs/PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>) 和 [系统工程与架构规划](<docs/RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)。规划文档中的设计目标不自动代表已交付功能。
 
-* **📐 系统工程规范与任务拆解 (RFCs)**
-* **[RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16)](<docs/RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)** — 核心契约定义、零分配原则及第一阶段并行任务包（WP-01 ~ WP-05）验收标准。
+## 开始使用
 
+需要安装 Rust 稳定版工具链。克隆仓库并进入目录：
 
-
----
-
-## 🚀 快速开始与开发者工作流 (Quick Start & Workflow)
-
-### 1. 克隆完整工作区
-
-由于核心子模块采用独立仓库管理，克隆主仓库时请务必带上 `--recurse-submodules` 参数：
-
-```bash
-git clone --recurse-submodules https://github.com/SeekStarAI/StarLight.git
+```sh
+git clone https://github.com/SeekStarAI/StarLight.git
 cd StarLight
-
 ```
 
-*(如果已经克隆了主仓库但子目录为空，请执行：`git submodule update --init --recursive`)*
+检查 workspace 并运行已实现组件的测试：
 
-### 2. 构建与运行基准测试
-
-确保本地已安装最新稳定版 Rust 工具链（`rustup update stable`）：
-
-```bash
-# 检查全局 Workspace 接口契约编译
+```sh
 cargo check --workspace
-
-# 运行指定模块（如内存规划器或精度打包器）的单元测试
-cargo test --package sl-graph
-cargo test --package sl-precision
-
-# 编译端侧发行版 StarLight-Nano (Release 优化模式)
-cargo build --release --package starlight-nano
-
+cargo test -p sl-model
+cargo test -p sl-precision
 ```
 
-### 3. 多模块并行开发守则
+`sl-precision` Safetensors 量化命令示例：
 
-* **独立提交，互不污染：** 若你认领了某个子模块的任务包（例如 `crates/sl-precision`），请直接进入该子目录切分支、开发并推送到该子模块的远端仓库，**严禁在主控仓库直接夹带子模块的业务代码修改**。
-* **严守红线：** 在 `sl-core` 与 `backend-*` 的单步执行路径中，严禁任何运行期动态堆分配；所有新增算子必须通过 `tests/golden-baselines/` 下的浮点精度对齐测试。
+```sh
+cargo run --release -p sl-precision --bin sl-quantize -- \
+  --input model.safetensors \
+  --output model-int4.safetensors \
+  --format int4 \
+  --group-size 128
+```
 
----
+输出文件会将量化载荷和 scale 作为张量保存，并使用 StarLight 元数据记录恢复信息；它不是可直接交给普通模型加载器的权重文件。更多参数与限制见 [`sl-precision` 文档](crates/sl-precision/README.md)。
 
-## 🤝 参与贡献与任务认领 (Contributing)
+## 开发与贡献
 
-StarLight 目前正处于 **Phase 1（核心通路打通与基线建设）** 的并行冲刺阶段。请查看 **[RFC-0001 任务包清单](https://www.google.com/search?q=./docs/01-rfcs/0001-core-architecture-and-wbs-202610.md%235-%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%E5%B9%B6%E8%A1%8C%E4%BB%BB%E5%8A%A1%E5%8C%85work-packages%E5%88%86%E5%8F%91%E4%B8%8E%E9%AA%8C%E6%94%B6%E6%A0%87%E5%87%86)** 了解当前开放的 Work Packages，并在各子模块下的 `DEVELOPMENT.md` 中查阅具体的开发边界与测试指令。
+请先阅读相关 crate 的 README 和开发文档，再确认接口是否已经稳定。新设备通常通过实现 `sl-device` 契约并提供对应后端接入；新的模型格式由 `sl-model` 的格式适配层负责；精度转换能力应放在 `sl-precision` 或适当的离线工具中；请求队列、服务生命周期和集群策略应留在运行时外围，而不是塞入设备内核或图执行组件。
 
----
+提交改动时，应使用对应模块的测试和数值基准验证行为。当前架构仍在演进，文档和实现若有差异，应以代码、测试及对应模块的最新开发说明为准。
 
-## 📜 开源许可 (License)
+## 许可
 
-本项目采用双重许可，您可以选择 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE)。
-
-Copyright (c) 2026 SeekStarAI and StarLight Contributors.
+本仓库采用双重许可，可选择 [MIT](LICENSE-MIT) 或 [Apache-2.0](LICENSE-APACHE)。
