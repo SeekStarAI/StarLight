@@ -224,7 +224,7 @@ pub enum Op {
     KvAppend { layer: u32 },
     SplitHeads { heads: u32, head_dim: u32 },
     MergeHeads { heads: u32, head_dim: u32 },
-    CausalAttention { heads: u32, kv_heads: u32, head_dim: u32, scale: f32 },
+    CausalAttention { layer: u32, heads: u32, kv_heads: u32, head_dim: u32, scale: f32 },
     SwiGlu,
     RmsNormMatMul { eps: f32 },
 }
