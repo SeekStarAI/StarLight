@@ -94,7 +94,7 @@ pub trait Device: Send {
 - `BufferRef.len` 必须等于对应 value 的元素数；
 - 设备只执行单算子，不解释依赖、不持有请求、不做调度。
 
-CPU 实现 `CpuDevice` 放在 `crates/backends/backend-cpu`，复用现有 `reference::*` 内核；现有 `executor` 保持不变，作为 IR 级参考执行器。
+CPU 实现 `CpuDevice` 放在 `crates/backends/backend-cpu`，构造函数固定为 `CpuDevice::new()`，复用现有 `reference::*` 内核；现有 `executor` 保持不变，作为 IR 级参考执行器。
 
 ### 3.2 `sl-core`
 
