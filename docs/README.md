@@ -5,3 +5,4 @@
 - [ARCH-0004：计算图 IR 与设备命令 ABI 契约](<ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>)：`sl-ir` 的职责边界、`Program`/`CommandBuffer` 两层 IR、算子分层与能力协商、静态内存规划不变量、绑定语义与版本策略。
 - [PHIL-0001：为什么将 StarLight 构建为“推理领域的 GNU/Linux”？](<PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>)：模块化与发行版设计哲学。
 - [RFC-0001：系统工程与架构规划草案](<RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)：早期架构目标与任务拆分；其中的规划不代表当前实现状态。
+- [RFC-0002：采纳 sl-ir 作为图 IR 与设备命令 ABI](<RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>)：新增 ABI crate、修订模块依赖与后端 trait 的决策记录。
