@@ -19,3 +19,6 @@
 [submodule "crates/sl-model-adapters"]
 	path = crates/sl-model-adapters
 	url = https://github.com/SeekStarAI/sl-model-adapters.git
+[submodule "crates/sl-ir"]
+	path = crates/sl-ir
+	url = https://github.com/SeekStarAI/sl-ir.git

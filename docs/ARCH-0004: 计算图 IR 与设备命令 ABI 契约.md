@@ -5,7 +5,7 @@
 **范围：** IR 分层、ABI 类型归属、算子契约、能力协商、静态内存规划、绑定语义、错误模型与版本策略
 **前置文档：** [ARCH-0002](<ARCH-0002: 模块边界与发行版业务管线契约.md>)、[ARCH-0003](<ARCH-0003: 模型制品与多模态推理数据流设计.md>)、[RFC-0001](<RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)
 
-本文把 ARCH-0002 中仍是概念名的交接对象（`GraphPlan`、`CompiledGraph`、`Device`、`Engine`）细化成可评审的数据契约，并引入一个新的 ABI crate `sl-ir`。文中出现的 Rust 类型均为**设计目标**，不代表任何 crate 已经提供；`sl-ir` 仓库目前尚未建立。
+本文把 ARCH-0002 中仍是概念名的交接对象（`GraphPlan`、`CompiledGraph`、`Device`、`Engine`）细化成可评审的数据契约，并引入一个新的 ABI crate `sl-ir`。文中出现的 Rust 类型均为**设计目标**，不代表任何 crate 已经提供；`sl-ir` 仓库已建立并作为 submodule 接入，但目前只有许可证文件，尚无 Cargo 包，本文描述的是待实现的契约。
 
 ## 0. 效力与冲突处理
 
@@ -525,6 +525,8 @@ pub enum CompileError {
 | M5 | `sl-core` build/step + `starlight-nano` CLI | token IDs 输入到 logits 输出；零分配门禁通过 |
 
 每个阶段都必须先更新对应模块的 README/DEVELOPMENT 与支持矩阵，再合并实现。M4 起引入的数值基线格式、容差与跨 ISA 一致性策略由后端文档定义，不写入本文。
+
+M0 的仓库创建与 submodule 接入已完成；`[workspace].members` 与 `[patch.crates-io]` 必须等 `sl-ir` 具备 Cargo manifest 后再添加，否则 `cargo check --workspace` 会因找不到包而失败。
 
 ## 14. 当前明确不承诺
 

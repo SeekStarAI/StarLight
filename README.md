@@ -51,6 +51,7 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 | --- | --- | --- |
 | `sl-model` | 定义格式无关的模型包、张量元数据和数据视图，并提供模型格式读取适配 | 读取与规范化模型输入 |
 | `sl-model-adapters` | 将通用模型包按模型家族 lowering 为计算图描述与权重绑定 | 连接模型表示和通用图；当前仓库已接入但尚无 Cargo 包/API |
+| `sl-ir` | 定义图 IR、算子契约、静态内存计划与设备命令 ABI | 模块间传递的数据结构契约层；当前仓库已接入但尚无 Cargo 包/API |
 | `sl-precision` | 提供量化、反量化及精度相关数据处理工具 | 离线或加载阶段的权重准备；不属于 `sl-core` 单步执行热路径 |
 | `sl-graph` | StarLight Graph；表达计算拓扑并规划图执行和内存布局 | 形成可供运行时与后端执行的计算图 |
 | `sl-device` | 定义设备、缓冲区、队列等虚拟设备接口（VDI）契约 | 隔离图执行与具体硬件实现 |
@@ -78,6 +79,7 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 ```text
 StarLight/
 ├── crates/
+│   ├── sl-ir/                # 计算图 IR 与设备命令 ABI（独立 submodule）
 │   ├── sl-model/             # 模型数据结构与格式适配
 │   ├── sl-model-adapters/    # 模型家族到通用图的适配（独立 submodule）
 │   ├── sl-precision/         # 量化、反量化与精度工具
@@ -94,7 +96,7 @@ StarLight/
     └── golden-baselines/     # 跨组件数值基准数据
 ```
 
-其中 `sl-core`、`sl-device`、`sl-graph`、`sl-model`、`sl-model-adapters`、`sl-precision` 和 `sl-daemon` 是独立 Git 仓库，作为 Git submodule 接入。StarLight 主仓库只记录各 submodule 的仓库 URL 与固定提交，不纳入它们的源文件；递归克隆后，submodule 内容会检出到对应目录。只有具备 Cargo manifest 并列入根 workspace 的组件才参与 Cargo workspace 构建；`sl-model-adapters` 当前尚无 Cargo package，因此暂未列入 workspace。其他路径是否为独立仓库，以 `.gitmodules` 和 Git 索引为准。各组件通过 Rust crate 边界组织；具体发布、依赖和开发约定以对应组件文档为准。
+其中 `sl-ir`、`sl-core`、`sl-device`、`sl-graph`、`sl-model`、`sl-model-adapters`、`sl-precision` 和 `sl-daemon` 是独立 Git 仓库，作为 Git submodule 接入。StarLight 主仓库只记录各 submodule 的仓库 URL 与固定提交，不纳入它们的源文件；递归克隆后，submodule 内容会检出到对应目录。只有具备 Cargo manifest 并列入根 workspace 的组件才参与 Cargo workspace 构建；`sl-model-adapters` 与 `sl-ir` 当前尚无 Cargo package，因此暂未列入 workspace。其他路径是否为独立仓库，以 `.gitmodules` 和 Git 索引为准。各组件通过 Rust crate 边界组织；具体发布、依赖和开发约定以对应组件文档为准。
 
 ## 当前实现状态
 
@@ -102,6 +104,7 @@ StarLight 仍处于基础能力建设阶段。README 描述的是组件定位和
 
 - `sl-model` 已提供模型包与张量数据契约，并有 Safetensors reader；格式支持仍在扩展。
 - `sl-model-adapters` 已作为独立 submodule 接入，但当前仅有仓库说明和许可证，尚无 Cargo package、公开 API 或适配实现。
+- `sl-ir` 已建立独立仓库并作为 submodule 接入，但当前仅有许可证文件，尚无 Cargo package、公开 API 或实现；其契约设计见 [ARCH-0004](<docs/ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>)。
 - `sl-precision` 已提供对称分组 INT4/INT8 量化与反量化能力，并包含 Safetensors 量化命令行工具。
 - `sl-graph`、`sl-core`、`sl-device`、`sl-daemon` 和当前 CPU/Vulkan 后端仍在基线或骨架阶段。StarLight Graph 的并发图执行能力、完整设备执行链路及服务端调度能力需以实际实现和测试为准。
 - CUDA、NPU、分布式通信等属于可扩展方向；当前 workspace 不包含已实现的 CUDA 后端或通信组件。
