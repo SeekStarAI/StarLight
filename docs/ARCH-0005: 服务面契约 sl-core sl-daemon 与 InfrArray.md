@@ -327,7 +327,7 @@ starlight-runtime → sl-daemon, sl-model, sl-model-adapters, sl-graph, sl-core,
 - `starlight-runtime` 不得包含算子、tokenizer 算法或 HTTP 协议实现——这些分别属于 backend、`sl-tokenizer` 与 `sl-daemon`；
 - `sl-tokenizer` 就绪前，runtime 只能接受 token ID 输入，不能提供文本 OpenAI 接口。
 
-当前阻塞：`sl-model-adapters` 尚无 Cargo 包，`sl-graph`、`sl-core`、`sl-device` 尚未实现，因此该 crate 现在只能建立骨架与契约测试，不能真实推理。
+当前状态：`sl-graph`、`sl-core`、`sl-device` 与 `CpuDevice` 已实现，runtime 已跑通 token-ID fixture（`run`）；`serve` 仍依赖 `sl-daemon` 与 `sl-tokenizer`，真实模型仍依赖 `sl-model-adapters`。
 
 ## 6. InfrArray 如何配合
 

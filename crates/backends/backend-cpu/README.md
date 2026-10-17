@@ -191,6 +191,19 @@ pub enum ExecutionError {
 - 不支持输入/输出原地别名、paged KV、变长 batch、FP16/BF16。
 - 空张量合法：`MatMul` 的 `batch == 0`、`RmsNorm` / `SwiGLU` / `RmsNormMatMul` 的 `rows == 0` 都会正常执行；`Softmax` 的 `rows == 0` 由内核按契约返回 `InvalidShape`，不会 panic。
 
+## `CpuDevice`（`sl-device` 实现）
+
+`src/device.rs` 提供 `CpuDevice`，实现 `sl_device::Device`：
+
+- 缓冲区：`Vec<Option<Vec<f32>>>` / `Vec<Option<Vec<u32>>>`；
+- 提供分配、上传、下载、同步；
+- `dispatch` 按 `Op` 分发到 `reference::*`，覆盖全部 18 个算子；
+- `BufferRef.offset` 是元素偏移，按 `input_values` / `output_values` 的形状切片；
+- 执行路径无 `unsafe`、无堆分配；
+- `executor` 保留为 IR 级参考执行器；`CpuDevice` 是设备契约实现，两者共享同一组 reference 内核。
+
+`starlight-runtime` 通过 `CpuDevice::new()` 使用它完成端到端 fixture 执行。
+
 ## 验证
 
 ```sh

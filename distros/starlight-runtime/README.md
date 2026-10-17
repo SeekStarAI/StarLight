@@ -240,16 +240,10 @@ The real `sl-graph`, `sl-core`, `sl-device` and
 `starlight_backend_cpu::CpuDevice` implementations have landed, and the full
 end-to-end chain passes (43 tests). No mocks or stubs are used.
 
-One workspace-level check still fails, but not in this crate:
+Workspace-level checks pass:
 
-```text
-cargo clippy -p starlight-runtime --all-targets -- -D warnings
+```sh
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
 ```
-
-lints the dependency crates and currently stops in
-`sl-core` (`needless_range_loop` at `crates/sl-core/src/engine.rs:1159`,
-`:1167`, `:1175`) and `starlight-backend-cpu` (`manual_flatten` at
-`crates/backends/backend-cpu/src/device.rs:510` and `:517`,
-`needless_option_as_deref` at `:674`). Those crates are outside this runtime's
-scope. `cargo clippy -p starlight-runtime --all-targets --no-deps -- -D
-warnings` is clean.

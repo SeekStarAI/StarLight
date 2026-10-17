@@ -5,8 +5,8 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 项目由契约层、模型与精度工具、图编译器、运行时、设备接口、计算后端和服务组件构成；发行版负责把这些组件组装成可交付形态。
 
 > **项目阶段：早期。**
-> 当前可运行的是模型读取、离线量化、IR 构造与校验，以及 CPU 标量参考执行器。
-> **尚不能端到端推理一个真实模型**：图编译器、模型家族 Adapter、`sl-core` Engine、`sl-device` 设备契约、CUDA/Vulkan 内核与服务端都还未实现。
+> 当前可运行：模型读取、离线量化、IR 校验、图编译、CPU 执行器与 `Engine::step`，以及 `starlight-runtime` 的 token-ID 端到端 fixture（Gather → RmsNorm → MatMulNT → LastToken）。
+> **尚不能加载真实模型**：模型家族 Adapter、tokenizer、`sl-daemon` 服务端、CUDA/Vulkan 内核仍未实现。
 > 本 README 中的“目标”“规划”“后续”均不代表已交付能力。
 
 ## 1. 项目定位
@@ -45,7 +45,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
                         │ runtime 进程协议（describe/serve/health/metrics）
 ┌───────────────────────▼────────────────────────────────────┐
 │ 服务层                                                      │
-│ starlight-runtime（目标）= sl-daemon + 后端 + 模型 + tokenizer│
+│ starlight-runtime（已实现 token-ID fixture）                  │
 └───────────────────────┬────────────────────────────────────┘
                         │ Rust API
 ┌───────────────────────▼────────────────────────────────────┐
@@ -56,7 +56,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 ┌───────────────────────▼────────────────────────────────────┐
 │ 编译与契约层                                                │
 │ sl-ir：Program / CommandBuffer / Op / MemoryPlan            │
-│ sl-graph：具体化、能力协商、分解、内存规划（目标）             │
+│ sl-graph：具体化、能力协商、分解、内存规划（已实现）           │
 └───────────────────────┬────────────────────────────────────┘
                         │
 ┌───────────────────────▼────────────────────────────────────┐
@@ -85,7 +85,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
                                           InfrArray / CLI / SDK
 ```
 
-图中除 `sl-model`、`sl-precision`、`sl-ir` 与 `backend-cpu` 的参考实现外，其余环节仍处于骨架或设计阶段。
+图中 `sl-graph`、`sl-device`、`sl-core`、`backend-cpu` 与 `starlight-runtime` 的 token-ID 路径已实现；模型 Adapter、`sl-daemon`、tokenizer、CUDA/Vulkan 仍处于骨架或设计阶段。
 
 ## 4. 组件与职责
 
@@ -95,15 +95,15 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 | `sl-model` | submodule | 格式无关的模型包、张量元数据与格式读取 | **已实现 Safetensors reader**；6 个测试；GGUF/ONNX/写入能力未实现 |
 | `sl-precision` | submodule | 量化、反量化与精度转换工具 | **已实现**对称分组 INT4/INT8 与 `sl-quantize` CLI；5 个测试 |
 | `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **空仓库**：只有 README 与 LICENSE，无 Cargo 包 |
-| `sl-graph` | submodule | 将 `Program` 具体化为 `CommandBuffer`：能力校验、分解、内存规划 | **骨架**：仅 crate 与文档 |
-| `sl-device` | submodule | 设备、缓冲区、队列与提交契约 | **骨架** |
-| `sl-core` | submodule | 装配图、权重与设备，提供 `Engine`/`step` | **骨架** |
-| `backend-cpu` | 主仓库 | CPU 计算内核与 IR 执行器 | **已实现标量参考内核 + 参考执行器**；63 个测试；未接 `sl-device`，无 SIMD |
+| `sl-graph` | submodule | 将 `Program` 具体化为 `CommandBuffer`：能力校验、分解、内存规划 | **已实现 `compile` 流水线**；21 个测试 |
+| `sl-device` | submodule | 设备、缓冲区、上传/下载与单算子分发契约 | **已实现细粒度 `Device` 契约**；3 个测试 |
+| `sl-core` | submodule | 装配 `CommandBuffer`、权重与设备，提供 `Engine::build/step` | **已实现**；9 个测试 |
+| `backend-cpu` | 主仓库 | CPU 参考内核、IR 执行器与 `CpuDevice` | **已实现**；71 个测试；`CpuDevice` 实现 `sl-device::Device`；无 SIMD |
 | `backend-vulkan` | 主仓库 | Vulkan 计算后端 | **骨架** |
 | `sl-daemon` | submodule | 请求生命周期、批处理、OpenAI 协议、流式 | **骨架**：空 `main` |
 | `starlight-nano` | 主仓库 | 端侧发行版装配入口 | **空壳**：`main` 为空 |
 | `starlight-cluster` | 主仓库 | 集群发行版装配入口 | **空壳**：`main` 为空 |
-| `starlight-runtime` | 主仓库（规划） | 服务运行时组合根：装配 daemon、模型、Adapter、图编译与后端 | **规划**：尚未建立 |
+| `starlight-runtime` | 主仓库 | 服务运行时组合根：装配 daemon、模型、Adapter、图编译与后端 | **已实现 token-ID 路径**（config/describe/validate/run）；`serve` 未实现；43 个测试 |
 | 分布式通信 | 未建立 | 跨设备/跨节点通信 | **未开始** |
 
 ## 5. 发行版、运行时与产品
@@ -113,12 +113,12 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 | 概念 | 含义 | 当前状态 |
 | --- | --- | --- |
 | 发行版（distro） | 选择并组装组件的交付形态 | `starlight-nano` / `starlight-cluster` 为空壳 |
-| 运行时（runtime） | 由 `sl-daemon` + 后端 + 模型组装出的可执行文件，暴露统一进程协议 | 目标形态，见 ARCH-0005 |
+| 运行时（runtime） | 由 `sl-daemon` + 后端 + 模型组装出的可执行文件，暴露统一进程协议 | `starlight-runtime` 已实现 token-ID fixture；`serve` 待 `sl-daemon` |
 | 产品（product） | 面向部署与运营的完整系统，可管理多个运行时 | InfrArray，独立仓库 |
 
 - **StarLight-Nano**：面向端侧、AIPC 与嵌入式环境，目标是轻量、进程内执行。
 - **StarLight-Cluster**：面向服务器与集群，目标是组合 `sl-daemon`、设备后端与后续通信组件。
-- **StarLight-Runtime**（`distros/starlight-runtime`，规划）：通用服务运行时组合根，装配 `sl-daemon`、模型加载、Adapter、图编译与后端，对外暴露 runtime 进程协议。它不是 submodule，也不属于 `sl-daemon`。
+- **StarLight-Runtime**（`distros/starlight-runtime`）：通用服务运行时组合根，装配 `sl-daemon`、模型加载、Adapter、图编译与后端。当前已实现 config/CLI/describe/validate/run 与 token-ID fixture；`serve` 在 `sl-daemon` 就绪前返回未实现。它不是 submodule，也不属于 `sl-daemon`。
 - **InfrArray**：以 StarLight 为引擎之一的独立商业产品，负责节点纳管、放置、服务编排、网关与 UI。它**不是本仓库的发行版，也不是 submodule**；首发使用 vLLM / TensorRT-LLM 运行时，StarLight 按认证矩阵逐格替换。详见 [PRODUCT-0001](<docs/PRODUCT-0001: InfrArray 产品规划.md>) 与 [ARCH-0005](<docs/ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>)。
 
 ## 6. 仓库结构
@@ -130,17 +130,18 @@ StarLight/
 │   ├── sl-model/             # 模型包与格式读取（submodule）
 │   ├── sl-model-adapters/    # 模型家族 lowering（submodule，空仓库）
 │   ├── sl-precision/         # 量化与精度工具（submodule）
-│   ├── sl-graph/             # 图编译与内存规划（submodule，骨架）
-│   ├── sl-device/            # 设备接口契约（submodule，骨架）
+│   ├── sl-graph/             # 图编译与内存规划（submodule，已实现）
+│   ├── sl-core/              # 运行时装配与 Engine（submodule，已实现）
+│   ├── sl-device/            # 设备接口契约（submodule，已实现）
 │   └── backends/
-│       ├── backend-cpu/      # CPU 标量参考内核 + 参考执行器
+│       ├── backend-cpu/      # CPU 参考内核 + 执行器 + CpuDevice
 │       └── backend-vulkan/   # Vulkan 后端（骨架）
 ├── services/
 │   └── sl-daemon/            # 服务进程与请求编排（submodule，骨架）
 ├── distros/
 │   ├── starlight-nano/       # 端侧发行版入口（空壳）
 │   ├── starlight-cluster/    # 集群发行版入口（空壳）
-│   └── starlight-runtime/    # 服务运行时组合根（规划）
+│   └── starlight-runtime/    # 服务运行时组合根（已实现 token-ID 路径）
 ├── docs/                     # 架构、决策记录、产品规划
 ├── tests/
 │   └── golden-baselines/     # 数值基准目录（尚无基准数据）
@@ -163,35 +164,41 @@ StarLight/
 2. **离线量化**：`sl-precision` 对 `f32` 做对称分组 INT4/INT8 量化，载荷 64 字节对齐；`sl-quantize` 可将 Safetensors 中的浮点张量转换为 StarLight 量化格式。
 3. **IR 构造与校验**：`sl-ir` 提供 `Program` / `CommandBuffer` / `Op` / `Signature` / `MemoryPlan` / `DeviceCapabilities` / 绑定结构与错误模型，并在 `Program::validate` 中校验端口数量、dtype、角色、秩与状态副作用。
 4. **命令流执行**：`backend-cpu` 的参考执行器可以执行手工构造并通过校验的 `CommandBuffer`，覆盖全部 18 个 `OpCode`，包括 `CausalAttention`、`SwiGlu`、`RmsNormMatMul`。执行路径无 `unsafe`、无堆分配。
+5. **图编译**：`sl-graph::compile` 完成符号维具体化、能力校验、`SwiGlu`/`RmsNormMatMul` 分解、生命周期着色与 `CommandBuffer` 生成；21 个测试。
+6. **端到端 token-ID 路径**：`starlight-runtime run` 把 fixture `Program` 编译后交给 `sl-core::Engine`，通过 `CpuDevice` 执行并输出 logits；与独立 f64 实现比对，容差 `1e-5`。
 
 ### 7.2 只有骨架或设计的能力
 
-- `sl-graph`：尚无 `Program → CommandBuffer` 的具体化、能力协商、composite 分解与内存着色；
-- `sl-device`：尚无设备 trait 与错误模型；
-- `sl-core`：尚无 `Engine` / `Session` / `step`；
 - `sl-daemon`：尚无 HTTP、队列、OpenAI 协议与流式；
+- `sl-tokenizer`：尚未建立；
 - `backend-vulkan`：无 Vulkan 实现；
 - `sl-model-adapters`：无 Cargo 包，无任何模型家族；
 - `starlight-nano` / `starlight-cluster`：无 CLI/SDK 管线；
-- `starlight-runtime`：尚未建立，代码位置与装配职责见 ARCH-0005 §5.5；
 - 分布式通信：未建立。
 
-### 7.3 尚未打通的端到端链路
+### 7.3 已打通与未打通的链路
+
+当前已打通（token-ID fixture）：
 
 ```text
-Safetensors ──> ModelBundle ──> Adapter ──> Program ──> CommandBuffer
-                                                              │
-                                                              ▼
-                                          sl-core Engine ──> backend ──> logits
+token IDs ──> Program ──> sl-graph::compile ──> CommandBuffer
+                                              │
+                                              ▼
+                          sl-core::Engine ──> CpuDevice ──> logits
 ```
 
-当前缺口：**Adapter 缺失、图编译器缺失、Engine 缺失、设备契约缺失**。因此 `cargo test` 能通过，但还不能加载一个真实模型并生成 token。
+尚未打通：
+
+- **真实模型**：`Safetensors → ModelBundle → Adapter → Program`，`sl-model-adapters` 仍无 Cargo 包；
+- **文本**：token ↔ 字符串，`sl-tokenizer` 尚未建立；
+- **服务**：HTTP / OpenAI / 队列，`sl-daemon` 仍是骨架；
+- **硬件**：CUDA / Vulkan 内核尚未实现。
 
 ### 7.4 质量基线
 
 | 项目 | 状态 |
 | --- | --- |
-| 单元测试 | **101 个**：`sl-ir` 27、`backend-cpu` 63、`sl-model` 6、`sl-precision` 5 |
+| 单元测试 | **185 个**：`sl-ir` 27、`sl-graph` 21、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
 | `cargo clippy --workspace --all-targets -D warnings` | 通过 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check -p sl-ir --no-default-features` | 通过 |
@@ -313,11 +320,11 @@ cargo fmt --all --check
 | --- | --- | --- |
 | M0 | `sl-ir` 数据类型、不变量校验、workspace 接入 | **已完成** |
 | M1 | 算子签名校验（端口数量、dtype、角色、秩） | **已完成** |
-| M2 | `sl-graph`：`Program → CommandBuffer` 具体化、能力协商、composite 分解 | 下一步 |
-| M3 | `sl-graph`：生命周期分析与内存着色 | 待开始 |
-| M4 | `sl-device` 契约、`backend-cpu` 接入设备执行路径 | 待开始 |
-| M5 | `sl-core` Engine/step、`sl-tokenizer`、`sl-daemon`、`starlight-runtime` | 待开始 |
-| M6 | 首个模型家族端到端：tiny fixture 起步，逐步覆盖 dense 7B–14B | 待开始 |
+| M2 | `sl-graph`：`Program → CommandBuffer` 具体化、能力协商、composite 分解 | **已完成** |
+| M3 | `sl-graph`：生命周期分析与内存着色 | **已完成** |
+| M4 | `sl-device` 契约、`backend-cpu` 接入设备执行路径 | **已完成** |
+| M5 | `sl-core` Engine/step、`sl-tokenizer`、`sl-daemon`、`starlight-runtime` | **部分完成**：Engine/step 与 runtime token-ID 已完成；tokenizer/daemon 待做 |
+| M6 | 首个模型家族端到端：tiny fixture 起步，逐步覆盖 dense 7B–14B | 待开始（依赖 Adapter） |
 
 路线图以 [ARCH-0004 §13](<docs/ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>) 与 [ARCH-0005 §10](<docs/ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>) 为准。
 

@@ -8,6 +8,8 @@
 
 ## 1. 目标与验收
 
+> **落地状态（2026-10-18）：** `sl-graph`、`sl-device`、`sl-core`、`CpuDevice` 与 `starlight-runtime` 的 token-ID 端到端链路已跑通，workspace 共 185 个测试；`serve` 与真实模型 Adapter 仍未实现。
+
 本轮三条线合并后必须跑通**真实端到端**，不允许 mock：
 
 ```text
