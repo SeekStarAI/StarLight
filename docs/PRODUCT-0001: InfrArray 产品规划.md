@@ -16,7 +16,7 @@
 | # | 决定 | 结论 |
 | --- | --- | --- |
 | D1 | 交付形态 | **私有化 + 托管云双形态**，同一套代码库 |
-| D2 | 运行时 | **StarLight 为默认引擎 + 兼容运行时兜底** |
+| D2 | 运行时 | **运行时契约可插拔：首发 vLLM / TensorRT-LLM，StarLight 按认证矩阵逐块替换** |
 | D3 | 开闭源 | **核心全开源（Apache-2.0）**，无功能阉割版 |
 | D4 | 首发硬件 | **NVIDIA + Linux 单平台** |
 | D5 | 多机 | **v1 即支持多机纳管**；但 v1 不做跨节点并行 |
@@ -42,7 +42,7 @@ InfrArray 是一个**图形化的推理基础设施控制面**：启动后自动
 1. **15 分钟上线**：裸机到第一个 token，不需要写 YAML、不需要 K8s。
 2. **一张画布管所有模型**：多模型、多节点、多 GPU 组，服务之间不打架。
 3. **可导出的部署清单**：画布产出的是版本化 `DeploymentSpec`，可 diff、可进 Git、可重放。
-4. **引擎可替换**：默认 StarLight，能力未覆盖时自动落到兼容运行时，并在 UI/API 中如实标注。
+4. **引擎可替换**：同一份清单可以跑在 vLLM、TensorRT-LLM 或 StarLight 上；切换引擎不改部署形态，并在 UI/API 中如实标注。
 
 ### 1.4 非目标（v1 明确不做）
 
@@ -127,24 +127,26 @@ CLI 与 UI 操作的是同一份清单和同一套 API。
 InfrArray（产品层，Apache-2.0）
     │  控制面、画布、网关、资产、调度
     ▼
-starlight-runtime（引擎发行版，MIT/Apache-2.0）
-    │  由 StarLight 组件组装的可执行运行时
-    ▼
-StarLight（引擎上游，MIT/Apache-2.0）
-    sl-model / sl-ir / sl-graph / sl-core / sl-device / backend-*
+runtime 插槽（统一 describe / serve / health / metrics 协议）
+    ├── runtime-vllm           首发
+    ├── runtime-tensorrt-llm   首发（NVIDIA 可选）
+    └── starlight-runtime      按认证矩阵逐块替换
+            ▼
+        StarLight（引擎上游，MIT/Apache-2.0）
+        sl-model / sl-ir / sl-graph / sl-core / sl-device / backend-*
 ```
 
 ### 3.2 关系定义
 
-1. **InfrArray 不是 StarLight 的发行版**。InfrArray 是独立产品；它交付物中名为 `starlight-runtime` 的可执行运行时，才是由 StarLight 组件组装的发行版。
-2. **StarLight 是 InfrArray 的默认引擎，也是唯一的一等引擎**。兼容运行时只用于填补内核尚未覆盖的能力。
-3. **依赖方向单向**：InfrArray 依赖 StarLight 的公开 API；StarLight 的任何 crate 不得依赖 InfrArray。
+1. **InfrArray 不是 StarLight 的发行版**。InfrArray 是独立产品；它通过统一的 runtime 协议驱动推理进程，StarLight 只是其中一种实现。
+2. **运行时是插槽，不是绑定**：InfrArray 首发用 vLLM / TensorRT-LLM 交付；StarLight 是目标一等引擎，按认证矩阵逐块替换。替换的是“某个模型家族 × 某类硬件 × 某种精度”的组合，不是一次性切换全部。
+3. **依赖方向单向**：InfrArray 依赖 StarLight 的公开进程协议；StarLight 的任何 crate 不得依赖 InfrArray。
 4. **不 fork**：引擎侧的问题一律向上游提交；InfrArray 仓库不维护 StarLight 的私有分支。
-5. **版本锁定**：每个 InfrArray 版本声明一个 `starlight-runtime` 版本范围和一张认证矩阵（模型家族 × 硬件 × 精度）。
-6. **能力门禁**：只有进入认证矩阵的组合才允许 `engine: starlight`；其余组合自动落到 `engine: compatible`，并在 UI、日志、API 响应头中标注。
-7. **性能口径**：对外性能数字必须注明引擎；`compatible` 运行的性能不得归因于 StarLight。
-8. **贡献分工**：内核、算子、图编译、量化算法进 StarLight；控制面、调度、UI、网关进 InfrArray。
-9. **发布节奏独立**：StarLight 按内核里程碑发布；InfrArray 按月发布；两者通过 `starlight-runtime` 的版本清单解耦。
+5. **版本锁定**：每个 InfrArray 版本声明每个 runtime 实现的版本范围与认证矩阵（模型家族 × 硬件 × 精度 × runtime 版本）。
+6. **能力门禁**：只有进入认证矩阵的组合才允许标注 `engine: starlight` / `vllm` / `tensorrt`；`auto` 按矩阵优先级回落，并在 UI、日志、API 响应头中标注实际实现。
+7. **性能口径**：对外性能数字必须注明 runtime 与版本；vLLM / TensorRT-LLM 的成绩不得归因于 StarLight，反之亦然。
+8. **贡献分工**：内核、算子、图编译、量化算法进 StarLight；控制面、调度、UI、网关、runtime 适配进 InfrArray。
+9. **发布节奏独立**：StarLight 按内核里程碑发布；InfrArray 按月发布；两者通过 runtime 协议版本与认证矩阵解耦。
 
 ### 3.3 运行时适配层
 
@@ -157,14 +159,34 @@ runtime health                   -> 200 / 503
 runtime metrics                  -> Prometheus 文本
 ```
 
-两个实现：
+三个实现，共用同一套协议：
 
 | 实现 | 何时使用 | 对外表述 |
 | --- | --- | --- |
-| `runtime-starlight` | 组合在认证矩阵内 | “StarLight 引擎” |
-| `runtime-compatible` | 内核尚未覆盖 | “兼容运行时”，不宣称 StarLight |
+| `runtime-vllm` | v1 默认；dense 文本模型 | “vLLM 运行时” |
+| `runtime-tensorrt-llm` | NVIDIA + 追求吞吐的客户 | “TensorRT-LLM 运行时” |
+| `runtime-starlight` | 命中 StarLight 认证矩阵的组合 | “StarLight 引擎” |
 
-认证矩阵是唯一开关。矩阵之外，不允许手工强制 `runtime-starlight`。
+认证矩阵是唯一开关。矩阵之外，不允许手工把某个组合标成 `starlight`；切换必须经过矩阵与契约测试。
+
+### 3.5 迁移策略：vLLM / TensorRT-LLM → StarLight
+
+迁移的单位是**认证矩阵的一格**，不是整个产品：
+
+```text
+1. 契约测试：同一请求在 runtime-vllm 与 runtime-starlight 上输出一致（容差内）
+2. 影子流量：同一 Service 双跑，主流量仍走旧实现，对比延迟与输出
+3. 灰度：按 Service 或租户切 1% → 10% → 100%
+4. 回滚：清单里把 engine 改回 vllm/tensorrt 即可，无需改架构
+5. 下线：旧实现只在没有认证组合依赖时移除
+```
+
+四条硬规则：
+
+1. **协议先于实现**：`describe/serve/health/metrics` 的字段与语义在 vLLM 适配时就要冻结，不能等 StarLight 再补。
+2. **适配层薄**：`runtime-vllm` 只做“启动参数映射 + 协议转换”，不允许把 vLLM 的私有能力泄漏进清单或 UI。
+3. **能力用矩阵表达**：`describe` 必须报告 `engine`、版本、`architectures`、`max_context`、`quantization`、`parallelism`（tp/pp/是否跨节点）、`topology` 要求；控制面据此放置，而不是假设。
+4. **性能分开记账**：迁移前后分别记录 TTFT/TPOT/吞吐，作为是否扩大认证矩阵的依据。
 
 ### 3.4 与内核的契约
 
@@ -282,7 +304,7 @@ spec:
         group_size: 128
         keep: ["model.embed_tokens.weight"]
       runtime:
-        engine: auto            # auto | starlight | compatible
+        engine: auto            # auto | vllm | tensorrt | starlight
         max_context: 32768
         kv_cache:
           dir: /var/lib/infrarray/kv
@@ -300,7 +322,7 @@ spec:
 规则：
 
 - `tensor_parallel`、`pipeline_parallel` 在 v1 只接受 1；大于 1 返回 `UnsupportedPlacement`，不静默串行；
-- `engine: starlight` 只在认证矩阵内被接受；其余情况返回 `EngineNotCertified`，`auto` 才会回落到兼容运行时；
+- `engine: starlight` 只在认证矩阵内被接受；其余情况返回 `EngineNotCertified`，`auto` 按矩阵优先级回落到 vllm/tensorrt；
 - schema 版本随字段变化升版；未知字段拒绝，不做静默忽略；
 - 清单可导出、可导入、可 diff，UI 不产生清单之外的私有状态。
 
@@ -320,8 +342,9 @@ spec:
       │ Agent（node-a）    │          │ Agent（node-b）    │
       │ 设备扫描 / 进程监管 │          │ ...               │
       │ 端口分配 / 模型缓存 │          │                   │
+      │ runtime-vllm       │          │                   │
+      │ runtime-tensorrt   │          │                   │
       │ runtime-starlight  │          │                   │
-      │ runtime-compatible │          │                   │
       └────────────────────┘          └───────────────────┘
 ```
 
@@ -442,7 +465,7 @@ POST /v1/embeddings
 
 - 支持 SSE 流式输出、`finish_reason`、usage；
 - 错误码与 OpenAI 对齐；
-- 响应头 `x-infrarray-engine: starlight|compatible`，客户端可感知引擎；
+- 响应头 `x-infrarray-engine: vllm|tensorrt|starlight`，客户端可感知引擎；
 - 多模态输入在 v2 加入，v1 只接受文本与 token 数组。
 
 ### 11.2 管理面
@@ -461,7 +484,7 @@ POST /v1/embeddings
 - `max_context`：服务级，受模型上限约束；
 - `kv_cache.dir`：每服务独立目录；
 - `batching.max_batch`：v1 为静态批上限；
-- `engine`：`auto | starlight | compatible`；
+- `engine`：`auto | vllm | tensorrt | starlight`；
 - `replicas`：同一 Service 的副本数，可跨节点。
 
 ## 12. 安全模型
@@ -507,7 +530,7 @@ POST /v1/embeddings
 
 | 时间 | 里程碑 | 交付 | 退出标准 |
 | --- | --- | --- | --- |
-| 2026 Q4 | M0 单机闭环 | Controller + Agent、设备扫描、单服务、兼容运行时、OpenAI API、向导式 UI、CLI apply | 裸机到首 token ≤ 15 分钟 |
+| 2026 Q4 | M0 单机闭环 | Controller + Agent、设备扫描、单服务、vLLM 运行时、OpenAI API、向导式 UI、CLI apply | 裸机到首 token ≤ 15 分钟 |
 | 2027 Q1 | M1 多机 + 画布 | `join` 多节点、自由画布、HF Hub、INT4/INT8、清单导入导出 | 3 节点纳管；双模型双卡组 ≤ 10 分钟 |
 | 2027 Q2 | M2 StarLight 认证 | 首个 dense 7B–14B + NVIDIA 组合接入 `runtime-starlight`；指标与告警；Controller HA | 认证组合数值一致；StarLight 引擎可切换 |
 | 2027 Q3 | M3 流水并行 + 云 alpha | 单节点流水并行、paged KV、云多租户 alpha、离线包 | 2 卡吞吐 ≥ 1.6× |
@@ -543,23 +566,27 @@ POST /v1/embeddings
 
 | 风险 | 对策 |
 | --- | --- |
-| StarLight 不能推理真实模型 | 兼容运行时兜底；M2 用认证矩阵切换，不阻塞 M0/M1 |
+| StarLight 不能推理真实模型 | 首发用 vLLM / TensorRT-LLM 交付；M2 用认证矩阵逐格切换，不阻塞 M0/M1 |
 | 多机 + 双形态 + 画布同时做导致范围失控 | v1 冻结清单字段；不做跨节点并行；画布先模板后自由 |
 | 全开源导致商业化压力 | 收入绑定云、支持、交付；不靠 license |
-| 兼容运行时被当成核心竞争力 | 适配层保持薄；对外只承诺接口；认证矩阵优先 StarLight |
+| 首发运行时是外部引擎，StarLight 价值被稀释 | 认证矩阵与性能对比公开；适配层保持薄；每季度扩大 StarLight 认证范围 |
 | 自定义节点安全事件 | v1 不开放；后续签名 + 能力清单 + 沙箱 |
 | 仅 NVIDIA 限制市场 | 明确支持矩阵；v3 评估 ROCm/国产卡 |
 | 商标风险 | 发布前完成正式检索；先占名 |
 
 ## 20. 对 StarLight 的硬性需求
 
+优先级是相对 **StarLight 接管第一个认证组合** 而言，不是 InfrArray 首发的前置条件——首发由 vLLM / TensorRT-LLM 交付。
+
 | 需求 | 用途 | 优先级 |
 | --- | --- | --- |
 | `starlight-runtime` 可执行文件与 describe/serve/health/metrics 协议 | Agent 拉起引擎 | P0 |
+| `describe` 扩展字段：`parallelism`、`topology`、`quantization`、`device` | 放置与认证矩阵 | P0 |
 | `sl-daemon` 的 OpenAI 兼容服务（协议只实现一次） | 推理 API | P0 |
 | `sl-tokenizer`（encode/decode，基于模型附属资产） | 文本请求 | P0 |
 | `Engine`/`Session`/`step` 稳定 API | 运行时内部 | P0 |
 | 首个 dense 7B–14B 家族端到端 | M2 认证 | P0 |
+| 本地设备枚举（NVML 封装） | runtime 能力上报 | P1 |
 | 家族内存估算元数据（层数、KV 维度、激活系数） | 放置算法 | P1 |
 | 量化产物格式与校验 | INT4/INT8 资产 | P1 |
 | 设备能力（显存、算力、拓扑） | 调度 | P1 |
@@ -567,7 +594,9 @@ POST /v1/embeddings
 | 单节点流水并行 | M3 | P3 |
 | 单节点张量并行 | M4 | P4 |
 
-## 21. 命名与占名
+## 21. 仓库、命名与占名
+
+**产品仓库：** [SeekStarAI/infrarray](https://github.com/SeekStarAI/infrarray)。它与 StarLight 平级，**不作为 StarLight 的 submodule**；StarLight 不依赖该仓库，两者只通过 runtime 协议交互。
 
 产品名 **InfrArray** 已定。`InfraFlow` 因存在活跃产品与商标申请弃用；`StarLight Canvas` 因已有同名节点式工作流项目弃用。`InfrArray` 在 npm、PyPI、crates.io、GitHub 与 `infrarray.com` 上均未被占用。
 
@@ -582,7 +611,7 @@ POST /v1/embeddings
 | 2026-10-17 | 首个演示：dense 7B–14B + INT4/INT8 |
 | 2026-10-17 | 命名：InfrArray |
 | 2026-10-17 | 交付：私有化 + 托管云双形态 |
-| 2026-10-17 | 引擎：StarLight 主 + 兼容运行时兜底 |
+| 2026-10-17 | 引擎：运行时契约可插拔，首发 vLLM / TensorRT-LLM，StarLight 逐格替换 |
 | 2026-10-17 | 开源：核心全开源 Apache-2.0，无功能阉割 |
 | 2026-10-17 | 硬件：NVIDIA + Linux |
 | 2026-10-17 | 多机：v1 管理面多机，不做跨节点并行 |

@@ -9,12 +9,13 @@
 
 ## 1. 设计结论
 
-1. **四层分离**：执行机制（`sl-core`）、服务策略（`sl-daemon`）、进程打包（`starlight-runtime`）、集群控制面（InfrArray）。
-2. **OpenAI 协议只实现一次**：在 `sl-daemon` 中；InfrArray 的 Gateway 只做多服务路由、鉴权、配额与计量，不做协议翻译。
-3. **InfrArray 不链接 `sl-core`**：两者只通过 `starlight-runtime` 的进程协议交互。
-4. **一个 Service = 一个 runtime 进程 = 一个 Engine 实例**（v1）。多模型靠多进程，而不是一个进程内多模型。
-5. **`sl-core` 不知道 HTTP**；`sl-daemon` 不知道 GPU 细节；`starlight-runtime` 不知道多节点；InfrArray 不知道算子。
-6. **可替换性是验收标准**：换 backend 不影响 daemon，换 daemon 不影响 InfrArray，换控制面不影响 runtime。
+1. **四层分离**：执行机制（`sl-core`）、服务策略（`sl-daemon`）、进程打包（runtime）、集群控制面（InfrArray）。
+2. **runtime 是插槽**：首发 `runtime-vllm` / `runtime-tensorrt-llm`，`runtime-starlight` 按认证矩阵逐格替换；所有实现共用同一进程协议。
+3. **OpenAI 协议由 runtime 实现，语义一致**：`sl-daemon` 是 StarLight 的实现，不是唯一实现；InfrArray 的 Gateway 只做多服务路由、鉴权、配额与计量，不做协议翻译。
+4. **InfrArray 不链接 `sl-core`**：两者只通过 runtime 的进程协议交互。
+5. **一个 Service = 一个 runtime 进程 = 一个 Engine 实例**（v1）。多模型靠多进程，而不是一个进程内多模型。
+6. **`sl-core` 不知道 HTTP**；`sl-daemon` 不知道 GPU 细节；runtime 不知道多节点；InfrArray 不知道算子。
+7. **可替换性是验收标准**：换 backend 不影响 daemon，换 runtime 不影响 InfrArray，换控制面不影响 runtime。
 
 ## 2. 分层与调用链
 
@@ -225,9 +226,9 @@ api_key = ""             # 为空时只允许本机访问
 | 引擎 | 步进失败、设备错误 | 500 / 503 |
 | 运行时 | 未就绪、正在关闭 | 503 |
 
-## 5. `starlight-runtime` 进程协议
+## 5. runtime 进程协议（所有实现共用）
 
-`starlight-runtime` 是由 `sl-daemon` + 一个 backend + 模型加载器组装出的可执行文件，也是 InfrArray 唯一需要认识的 StarLight 产物。
+以下协议由 `starlight-runtime`、`runtime-vllm`、`runtime-tensorrt-llm` 共同实现。字段名、语义与生命周期必须一致；`starlight-runtime` 只是 StarLight 的实现，不是协议本身。
 
 ### 5.1 子命令
 
@@ -274,6 +275,31 @@ starlight-runtime version                    输出版本
 - `serve` 在前台运行，日志写 stdout/stderr；
 - `--config` 是唯一输入，禁止通过环境变量偷偷改变语义；
 - 退出码：0 正常，2 配置错误，3 模型错误，4 设备错误，5 端口占用。
+
+### 5.4 多实现与迁移
+
+runtime 协议是插槽，实现如下：
+
+| 实现 | 状态 | 说明 |
+| --- | --- | --- |
+| `runtime-vllm` | 首发 | dense 文本模型，Apache-2.0 |
+| `runtime-tensorrt-llm` | 首发（可选） | NVIDIA 平台；注意许可证与分发方式 |
+| `runtime-starlight` | 逐格替换 | 命中认证矩阵后启用 |
+
+契约测试（所有实现必须通过）：
+
+1. `describe` 必填字段齐全，未知字段可忽略；
+2. `serve` 启动后 `/healthz` 与 `/readyz` 语义一致；
+3. 同一请求的响应结构、错误码、SSE 结束标记一致；
+4. `/metrics` 至少暴露请求数、错误数、TTFT、tokens；
+5. SIGTERM 后停止接新请求并在超时内退出。
+
+迁移规则：
+
+- 迁移单位是认证矩阵的一格（家族 × 硬件 × 精度）；
+- 同一 Service 通过 `engine` 字段切换实现，清单其他字段不变；
+- 切换前必须跑契约测试与数值对比，切换后可一键回滚；
+- 任何实现都不得在协议之外暴露私有字段给控制面。
 
 ## 6. InfrArray 如何配合
 
@@ -339,7 +365,8 @@ InfrArray 不可以做：
 
 本文对 PRODUCT-0001 做一处修正：
 
-- PRODUCT-0001 原先把 OpenAI 协议放在 InfrArray Gateway；本文改为**由 `sl-daemon` 实现，Gateway 透传**。理由是避免两套协议实现，并让 StarLight 脱离 InfrArray 也能作为独立服务使用。
+- PRODUCT-0001 原先把 OpenAI 协议放在 InfrArray Gateway；本文改为**由每个 runtime 实现（`sl-daemon` 是 StarLight 的实现），Gateway 透传**。理由是避免两套协议实现，并让任意 runtime 脱离 InfrArray 也能独立服务。
+- PRODUCT-0001 原先写 StarLight 为默认引擎；按 2026-10-17 的迁移策略，首发为 vLLM / TensorRT-LLM，StarLight 按认证矩阵逐格替换。
 
 需要在 PRODUCT-0001 中同步修改 §8（架构图与组件表）与 §11（API 归属）。
 
@@ -371,3 +398,5 @@ InfrArray 不可以做：
 4. `describe` 用 JSON 还是带版本的 protobuf？
 5. 多模型是否允许一个进程内共存（v1 明确不允许，v2 再评估）？
 6. Gateway 是否需要支持非 OpenAI 的私有协议？
+7. vLLM / TensorRT-LLM 适配器由谁维护，是否需要单独的仓库？
+8. 认证矩阵的契约测试放在 StarLight 仓库还是 InfrArray 仓库？
