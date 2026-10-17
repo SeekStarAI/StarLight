@@ -518,7 +518,7 @@ pub enum CompileError {
 | 阶段 | 交付 | 验收 |
 | --- | --- | --- |
 | M0 | 建立 `sl-ir` 仓库，接入 workspace 与 `[patch.crates-io]` | `cargo check --workspace` 通过；crate 零依赖 |
-| M1 | `DType`/`Shape`/`Value`/`Op`/`Signature`/`validate` | 非法图全部被拒；属性测试覆盖 shape/arity |
+| M1 | `OpCode::signature` 的 `Program` 级校验、属性测试 | 非法图全部被拒；属性测试覆盖 shape/arity（签名校验已实现，属性测试待补） |
 | M2 | `specialize` + 能力校验 + 分解 | 缺算子的 backend 在编译期失败；分解前后语义等价 |
 | M3 | 生命周期分析与 `MemoryPlan` | 100 节点图无区间交集；同输入两次编译字节一致 |
 | M4 | `sl-device` trait + `backend-cpu` scalar reference | reference 实现首个家族所需的 core 子集与 `CausalAttention`/`SwiGlu`；与 golden 基线在容差内一致 |
@@ -526,7 +526,7 @@ pub enum CompileError {
 
 每个阶段都必须先更新对应模块的 README/DEVELOPMENT 与支持矩阵，再合并实现。M4 起引入的数值基线格式、容差与跨 ISA 一致性策略由后端文档定义，不写入本文。
 
-M0 已完成：`sl-ir` 已建立独立仓库、接入 workspace 与 `[patch.crates-io]`，并提供本文 §3–§9 的数据类型、错误模型与不变量校验。`[workspace].members` 与 `[patch.crates-io]` 只有在 crate 具备 Cargo manifest 后才能添加，否则 `cargo check --workspace` 会因找不到包而失败。
+M0 已完成：`sl-ir` 已建立独立仓库、接入 workspace 与 `[patch.crates-io]`，并提供本文 §3–§9 的数据类型、错误模型与不变量校验。算子签名校验（M1）已随 M0 一并落地；属性测试与 `specialize`/能力协商/内存着色仍待补。`[workspace].members` 与 `[patch.crates-io]` 只有在 crate 具备 Cargo manifest 后才能添加，否则 `cargo check --workspace` 会因找不到包而失败。
 
 ## 14. 当前明确不承诺
 

@@ -120,7 +120,7 @@ RFC-0001 的其余内容（分层目标、任务包划分、CI 门禁原则）�
 | 阶段 | 内容 | 状态 |
 | --- | --- | --- |
 | M0 | `sl-ir` 仓库建立、submodule 接入、workspace member 与 `[patch.crates-io]`、数据类型与不变量校验 | **已完成**（`sl-ir` 0.1.0，26 个单测） |
-| M1 | `OpCode::signature` 的 `Program` 级校验、属性测试 | 待开始 |
+| M1 | `OpCode::signature` 的 `Program` 级校验、属性测试 | **签名校验已完成**；属性测试待补 |
 | M2 | `specialize`、能力校验、composite 分解（`sl-graph`） | 待开始 |
 | M3 | 生命周期分析与 `MemoryPlan` 着色 | 待开始 |
 | M4 | `sl-device` trait、`backend-cpu` 标量参考实现 | 进行中 |
