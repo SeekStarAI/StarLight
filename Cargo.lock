@@ -159,6 +159,7 @@ name = "starlight-backend-cpu"
 version = "0.1.0"
 dependencies = [
  "sl-device",
+ "sl-ir",
  "sl-precision",
 ]
 

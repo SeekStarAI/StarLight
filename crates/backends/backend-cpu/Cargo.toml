@@ -10,4 +10,5 @@ publish = false
 
 [dependencies]
 sl-device = "0.1.0"
+sl-ir = "0.1.0"
 sl-precision = "0.1.0"

@@ -18,6 +18,7 @@ use core::fmt;
 
 pub mod attention;
 pub mod elementwise;
+pub mod fused;
 pub mod layout;
 pub mod matmul;
 pub mod norm;
@@ -27,6 +28,7 @@ pub mod swiglu;
 
 pub use attention::{causal_attention, kv_append};
 pub use elementwise::{add, mul, scale, silu};
+pub use fused::rms_norm_matmul;
 pub use layout::{gather, last_token, merge_heads, split_heads};
 pub use matmul::{matmul_nn, matmul_nt};
 pub use norm::rms_norm;
