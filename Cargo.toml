@@ -12,6 +12,7 @@ members = [
     "services/sl-daemon",
     "distros/starlight-nano",
     "distros/starlight-cluster",
+    "distros/starlight-runtime",
 ]
 
 [workspace.metadata.starlight]
