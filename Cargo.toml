@@ -6,6 +6,7 @@ members = [
     "crates/sl-graph",
     "crates/sl-ir",
     "crates/sl-model",
+    "crates/sl-model-adapters",
     "crates/sl-precision",
     "crates/backends/backend-cpu",
     "crates/backends/backend-vulkan",

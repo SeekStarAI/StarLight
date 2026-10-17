@@ -5,7 +5,7 @@
 **范围：** 模型家族 Adapter 的输入输出、`LoweredModel` 结构、参数角色命名、prefill/decode 切分、v1 支持矩阵与验收
 **前置文档：** [ARCH-0002](<ARCH-0002: 模块边界与发行版业务管线契约.md>)、[ARCH-0003](<ARCH-0003: 模型制品与多模态推理数据流设计.md>)、[ARCH-0004](<ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>)、[RFC-0002](<RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>)
 
-本文定义 `sl-model-adapters` 的交付物 `LoweredModel`，即"模型包 + 架构配置"经过家族 lowering 之后、交给 `sl-graph` 编译之前的数据形态。文中类型是设计目标；`sl-model-adapters` 目前仍是空仓库。
+本文定义 `sl-model-adapters` 的交付物 `LoweredModel`，即"模型包 + 架构配置"经过家族 lowering 之后、交给 `sl-graph` 编译之前的数据形态。文中类型已由 `sl-model-adapters` 的 `llama` / `dense` 首个家族落地；`ProgramIo`、`ParamRef` 与 `WeightSpec.scales` 等细节以实现为准。
 
 ## 0. 定位
 
@@ -243,6 +243,8 @@ pub enum LoweringError {
 
 ## 10. 验收
 
+当前状态（2026-10-18）：第 1–4 项已有测试覆盖；第 5 项在 `sl-model-adapters` README 建立支持矩阵；第 6 项尚未打通（缺真实 checkpoint CLI 与 `Engine` 执行验证）。
+
 首个家族完成的标准：
 
 1. `describe()` 能在不加载权重字节的情况下，从 config 推导出角色表与形状；
@@ -254,7 +256,7 @@ pub enum LoweringError {
 
 ## 11. 当前明确不承诺
 
-- 具体家族名称与真实 checkpoint 支持；
+- 具体家族名称已确定为 `llama` / `dense`；真实 checkpoint 支持尚未验证；
 - 量化权重、多模态输入、MoE、滑动窗口；
 - 多设备切分；
 - 模型配置的自动推断；

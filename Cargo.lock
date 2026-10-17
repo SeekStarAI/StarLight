@@ -151,6 +151,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "sl-model-adapters"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "sl-graph",
+ "sl-ir",
+ "sl-model",
+]
+
+[[package]]
 name = "sl-precision"
 version = "0.1.0"
 dependencies = [

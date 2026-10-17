@@ -5,8 +5,8 @@ StarLight 是 SeekStarAI 面向模型推理构建的 AI Infra 基础设施项目
 项目由契约层、模型与精度工具、图编译器、运行时、设备接口、计算后端和服务组件构成；发行版负责把这些组件组装成可交付形态。
 
 > **项目阶段：早期。**
-> 当前可运行：模型读取、离线量化、IR 校验、图编译、CPU 执行器与 `Engine::step`，以及 `starlight-runtime` 的 token-ID 端到端 fixture（Gather → RmsNorm → MatMulNT → LastToken）。
-> **尚不能加载真实模型**：模型家族 Adapter、tokenizer、`sl-daemon` 服务端、CUDA/Vulkan 内核仍未实现。
+> 当前可运行：模型读取、离线量化、IR 校验、图编译、CPU 执行器与 `Engine::step`、`starlight-runtime` 的 token-ID 端到端 fixture，以及 `sl-model-adapters` 的 llama-dense lowering（测试中贯通 `ModelBundle → Program → CommandBuffer`）。
+> **尚不能以服务形态加载真实模型**：tokenizer、`sl-daemon` 服务端、CUDA/Vulkan 内核仍未实现；真实 checkpoint 的端到端 CLI 尚未提供。
 > 本 README 中的“目标”“规划”“后续”均不代表已交付能力。
 
 ## 1. 项目定位
@@ -94,8 +94,8 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 | `sl-ir` | submodule | 图 IR、算子契约、量化存储编码、静态内存计划、设备能力与绑定 ABI | **已实现**：数据类型、签名/state/编码校验、`ProgramBuilder`；32 个测试；零依赖、可 `no_std` |
 | `sl-model` | submodule | 格式无关的模型包、张量元数据与格式读取 | **已实现 Safetensors reader**；6 个测试；GGUF/ONNX/写入能力未实现 |
 | `sl-precision` | submodule | 量化、反量化与精度转换工具 | **已实现**对称分组 INT4/INT8 与 `sl-quantize` CLI；5 个测试 |
-| `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **空仓库**：只有 README 与 LICENSE，无 Cargo 包 |
-| `sl-graph` | submodule | 将 `Program` 具体化为 `CommandBuffer`：能力校验、分解、内存规划 | **已实现 `compile` 流水线**；21 个测试 |
+| `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **已实现 llama-dense**；16 个测试；无 CLI/服务 |
+| `sl-graph` | submodule | 将 `Program` 具体化为 `CommandBuffer`：能力校验、分解、内存规划 | **已实现 `compile` 流水线**；22 个测试 |
 | `sl-device` | submodule | 设备、缓冲区、上传/下载与单算子分发契约 | **已实现细粒度 `Device` 契约**；3 个测试 |
 | `sl-core` | submodule | 装配 `CommandBuffer`、权重与设备，提供 `Engine::build/step` | **已实现**；9 个测试 |
 | `backend-cpu` | 主仓库 | CPU 参考内核、IR 执行器与 `CpuDevice` | **已实现**；71 个测试；`CpuDevice` 实现 `sl-device::Device`；无 SIMD |
@@ -128,7 +128,7 @@ StarLight/
 ├── crates/
 │   ├── sl-ir/                # 图 IR 与设备命令 ABI（submodule，已实现 M0/M1）
 │   ├── sl-model/             # 模型包与格式读取（submodule）
-│   ├── sl-model-adapters/    # 模型家族 lowering（submodule，空仓库）
+│   ├── sl-model-adapters/    # 模型家族 lowering（submodule，llama-dense）
 │   ├── sl-precision/         # 量化与精度工具（submodule）
 │   ├── sl-graph/             # 图编译与内存规划（submodule，已实现）
 │   ├── sl-core/              # 运行时装配与 Engine（submodule，已实现）
@@ -153,7 +153,7 @@ StarLight/
 
 - `sl-ir`、`sl-model`、`sl-model-adapters`、`sl-precision`、`sl-graph`、`sl-device`、`sl-core`、`sl-daemon` 是独立 Git 仓库，以 submodule 接入；
 - 主仓库只记录 submodule URL 与固定提交，不纳入其源文件；
-- 只有具备 Cargo manifest 并列入根 workspace 的组件才参与构建；`sl-model-adapters` 尚无 Cargo 包，因此未列入；
+- 只有具备 Cargo manifest 并列入根 workspace 的组件才参与构建；`sl-model-adapters` 已加入 workspace；
 - 根 `Cargo.toml` 的 `[patch.crates-io]` 将 StarLight 组件解析到本地路径，因此 workspace 构建不依赖 crates.io 上的同名包。
 
 ## 7. 当前实现状态
@@ -164,41 +164,42 @@ StarLight/
 2. **离线量化**：`sl-precision` 对 `f32` 做对称分组 INT4/INT8 量化，载荷 64 字节对齐；`sl-quantize` 可将 Safetensors 中的浮点张量转换为 StarLight 量化格式。
 3. **IR 构造与校验**：`sl-ir` 提供 `Program` / `CommandBuffer` / `Op` / `Signature` / `MemoryPlan` / `DeviceCapabilities` / 绑定结构与错误模型，并在 `Program::validate` 中校验端口数量、dtype、角色、秩与状态副作用。
 4. **命令流执行**：`backend-cpu` 的参考执行器可以执行手工构造并通过校验的 `CommandBuffer`，覆盖全部 18 个 `OpCode`，包括 `CausalAttention`、`SwiGlu`、`RmsNormMatMul`。执行路径无 `unsafe`、无堆分配。
-5. **图编译**：`sl-graph::compile` 完成符号维具体化、能力校验、`SwiGlu`/`RmsNormMatMul` 分解、生命周期着色与 `CommandBuffer` 生成；21 个测试。
+5. **图编译**：`sl-graph::compile` 完成符号维具体化、能力校验、`SwiGlu`/`RmsNormMatMul` 分解、生命周期着色与 `CommandBuffer` 生成；22 个测试。
 6. **端到端 token-ID 路径**：`starlight-runtime run` 把 fixture `Program` 编译后交给 `sl-core::Engine`，通过 `CpuDevice` 执行并输出 logits；与独立 f64 实现比对，容差 `1e-5`。
+7. **模型 lowering**：`sl-model-adapters` 的 `llama`/`dense` 家族把 `ModelBundle` 转成 prefill/decode `Program`，覆盖 GQA、NeoX RoPE、`CausalAttention`、SwiGLU 与 KV state；16 个测试。
 
 ### 7.2 只有骨架或设计的能力
 
 - `sl-daemon`：尚无 HTTP、队列、OpenAI 协议与流式；
 - `sl-tokenizer`：尚未建立；
 - `backend-vulkan`：无 Vulkan 实现；
-- `sl-model-adapters`：无 Cargo 包，无任何模型家族；
 - `starlight-nano` / `starlight-cluster`：无 CLI/SDK 管线；
 - 分布式通信：未建立。
 
 ### 7.3 已打通与未打通的链路
 
-当前已打通（token-ID fixture）：
+当前已打通（测试中）：
 
 ```text
-token IDs ──> Program ──> sl-graph::compile ──> CommandBuffer
-                                              │
-                                              ▼
-                          sl-core::Engine ──> CpuDevice ──> logits
+Safetensors (F32) ──> ModelBundle ──> llama-dense Adapter ──> Program
+                                                               │
+token IDs ──> ... ──> sl-graph::compile ──> CommandBuffer ──> Engine ──> CpuDevice ──> logits
 ```
+
+`lower` 已能把 tiny `ModelBundle` 转成 prefill/decode `Program`，并由 `sl-graph::compile` 生成合法 `CommandBuffer`；尚未提供把真实 checkpoint 串起来的 CLI。
 
 尚未打通：
 
-- **真实模型**：`Safetensors → ModelBundle → Adapter → Program`，`sl-model-adapters` 仍无 Cargo 包；
 - **文本**：token ↔ 字符串，`sl-tokenizer` 尚未建立；
 - **服务**：HTTP / OpenAI / 队列，`sl-daemon` 仍是骨架；
+- **真实权重执行**：F32 checkpoint 的端到端 CLI；F16/BF16 需转换或新增算子；量化执行需要 backend 量化内核；
 - **硬件**：CUDA / Vulkan 内核尚未实现。
 
 ### 7.4 质量基线
 
 | 项目 | 状态 |
 | --- | --- |
-| 单元测试 | **190 个**：`sl-ir` 32、`sl-graph` 21、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
+| 单元测试 | **207 个**：`sl-ir` 32、`sl-graph` 22、`sl-model-adapters` 16、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
 | `cargo clippy --workspace --all-targets -D warnings` | 通过 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check -p sl-ir --no-default-features` | 通过 |
@@ -324,7 +325,7 @@ cargo fmt --all --check
 | M3 | `sl-graph`：生命周期分析与内存着色 | **已完成** |
 | M4 | `sl-device` 契约、`backend-cpu` 接入设备执行路径 | **已完成** |
 | M5 | `sl-core` Engine/step、`sl-tokenizer`、`sl-daemon`、`starlight-runtime` | **部分完成**：Engine/step 与 runtime token-ID 已完成；tokenizer/daemon 待做 |
-| M6 | 首个模型家族端到端：tiny fixture 起步，逐步覆盖 dense 7B–14B | 待开始（依赖 Adapter） |
+| M6 | 首个模型家族端到端：tiny fixture 起步，逐步覆盖 dense 7B–14B | **部分完成**：llama-dense lowering + compile 已贯通；缺真实 checkpoint CLI 与执行验证 |
 
 路线图以 [ARCH-0004 §13](<docs/ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>) 与 [ARCH-0005 §10](<docs/ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>) 为准。
 
