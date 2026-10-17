@@ -91,7 +91,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 
 | 组件 | 仓库形态 | 职责 | 当前状态 |
 | --- | --- | --- | --- |
-| `sl-ir` | submodule | 图 IR、算子契约、静态内存计划、设备能力与绑定 ABI | **已实现 M0/M1**：数据类型、不变量校验、算子签名校验；27 个测试；零依赖、可 `no_std` |
+| `sl-ir` | submodule | 图 IR、算子契约、量化存储编码、静态内存计划、设备能力与绑定 ABI | **已实现**：数据类型、签名/state/编码校验、`ProgramBuilder`；32 个测试；零依赖、可 `no_std` |
 | `sl-model` | submodule | 格式无关的模型包、张量元数据与格式读取 | **已实现 Safetensors reader**；6 个测试；GGUF/ONNX/写入能力未实现 |
 | `sl-precision` | submodule | 量化、反量化与精度转换工具 | **已实现**对称分组 INT4/INT8 与 `sl-quantize` CLI；5 个测试 |
 | `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **空仓库**：只有 README 与 LICENSE，无 Cargo 包 |
@@ -198,7 +198,7 @@ token IDs ──> Program ──> sl-graph::compile ──> CommandBuffer
 
 | 项目 | 状态 |
 | --- | --- |
-| 单元测试 | **185 个**：`sl-ir` 27、`sl-graph` 21、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
+| 单元测试 | **190 个**：`sl-ir` 32、`sl-graph` 21、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
 | `cargo clippy --workspace --all-targets -D warnings` | 通过 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check -p sl-ir --no-default-features` | 通过 |

@@ -8,7 +8,7 @@
 
 ## 1. 目标与验收
 
-> **落地状态（2026-10-18）：** `sl-graph`、`sl-device`、`sl-core`、`CpuDevice` 与 `starlight-runtime` 的 token-ID 端到端链路已跑通，workspace 共 185 个测试；`serve` 与真实模型 Adapter 仍未实现。
+> **落地状态（2026-10-18）：** `sl-graph`、`sl-device`、`sl-core`、`CpuDevice` 与 `starlight-runtime` 的 token-ID 端到端链路已跑通，workspace 共 190 个测试；`serve` 与真实模型 Adapter 仍未实现。
 
 本轮三条线合并后必须跑通**真实端到端**，不允许 mock：
 
@@ -41,7 +41,7 @@ token IDs
 
 `sl-core` **只接收 `CommandBuffer`，不依赖 `sl-graph`**。三条线共用本文 §3 的签名，不得自行改接口。
 
-`sl-ir` 冻结在 `IR_VERSION = 1`。任何一条线发现契约缺口，必须报告，不得单方面修改 `sl-ir`。
+`sl-ir` 当前为 `IR_VERSION = 2`（v2 引入量化存储编码）；三线按该版本实现。任何一条线发现契约缺口，必须报告，不得单方面修改 `sl-ir`。
 
 ## 3. 冻结接口
 

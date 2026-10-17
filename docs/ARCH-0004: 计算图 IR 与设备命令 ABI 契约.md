@@ -76,10 +76,10 @@
 ### 3.1 元素类型
 
 ```rust
-pub enum DType { F32, F16, BF16, U32, I32 }
+pub enum DType { F32, F16, BF16, U32, I32, U8, I8 }
 ```
 
-v1 只允许 `F32` 作为计算与权重 dtype；`U32` 用于 token、位置与长度标量。其他变体为后续扩展预留，backend 必须在能力中声明实际支持集合。
+v1 的计算与权重逻辑 dtype 只要求 `F32`；`U32` 用于 token、位置与长度标量；`U8`/`I8` 用于打包后的量化载荷。其他变体为后续扩展预留，backend 必须在能力中声明实际支持集合。
 
 ### 3.2 维度与形状
 
@@ -123,8 +123,19 @@ pub struct Value {
     pub dtype: DType,
     pub shape: Shape,
     pub role: ValueRole,
+    pub encoding: TensorEncoding,
+}
+
+pub enum QuantizationFormat { Int4, Int8 }
+
+pub enum TensorEncoding {
+    Dense,
+    GroupwiseQuantized { format: QuantizationFormat, group_size: u32 },
+    OpaqueQuantized { scheme: String },
 }
 ```
+
+`dtype` 是**逻辑**元素类型，`encoding` 描述物理存储。只有 `Param` 允许非 `Dense` 编码；`Input`、`Output`、`Scalar`、`State`、`Temp` 必须为 `Dense`。量化参数按逻辑形状声明（例如 `[N, K]`），`storage_bytes` 返回打包载荷字节数；scale 是独立的 `Param` value，不由 `TensorEncoding` 隐式携带。`OpaqueQuantized` 没有可计算的存储大小，编译器与运行时必须显式拒绝执行。
 
 规则：
 
@@ -506,8 +517,8 @@ pub enum CompileError {
 
 ## 12. 版本与兼容
 
-1. `IR_VERSION: u32` 约束 ABI 语义；crate semver 约束 Rust API。二者独立升级。
-2. 以下任一变化必须提升 `IR_VERSION`：增删 `OpCode`；修改 `Signature`；修改字段含义；修改 `MemoryPlan` 不变量；修改绑定结构。
+1. `IR_VERSION: u32` 约束 ABI 语义；crate semver 约束 Rust API。二者独立升级。当前 `IR_VERSION = 2`（v1 初始 ABI；v2 增加 `U8`/`I8`、`Value::encoding`、`TensorEncoding` 与 state/编码校验）。
+2. 以下任一变化必须提升 `IR_VERSION`：增删 `OpCode`；修改 `Signature`；修改 `DType`、`TensorEncoding` 或 `Value` 字段；修改 `MemoryPlan` 不变量；修改绑定结构。
 3. `OpCode` 使用 `#[repr(u16)]`，判别值永不复用。删除算子时保留其判别值作为墓碑，不重新分配。
 4. backend 必须声明 `ir_version`，且 match 必须有 catch-all 返回 `UnsupportedOp`，以保证旧 backend 面对新算子时安全失败。
 5. 编译缓存、序列化计划、C ABI 均以 `IR_VERSION` 作为缓存键的一部分。

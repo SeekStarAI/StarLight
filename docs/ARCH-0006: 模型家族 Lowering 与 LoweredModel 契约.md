@@ -113,6 +113,18 @@ pub struct IoSpec {
 - `WeightSpec` 不含 `ValueId`：同一个权重会在两个程序里各有一个 `Param` value，物理缓冲只有一份，由 `sl-core` 在 `ParamBinding` 阶段合并。
 - 这里的 `ParamBinding` 是 `sl-ir` 中的"value → buffer"设备绑定，不要与本文的 `WeightSpec` 混淆。
 
+## 3.1 与 `sl-ir` 的编码映射
+
+Adapter 必须把 `sl-model` 的 `TensorEncoding` 显式映射为 `sl-ir::TensorEncoding`：
+
+| 源编码 | 目标 `Value` |
+| --- | --- |
+| `Dense` F32/F16/BF16 | `Value::new(dtype, logical_shape, Param)` |
+| `GroupwiseQuantized { Int4/Int8, group_size }` | `Value::with_encoding(F32, logical_shape, Param, GroupwiseQuantized { .. })` |
+| `OpaqueQuantized` | 拒绝：`UnsupportedEncoding`，不得静默当作 dense |
+
+量化参数的 scale 张量是独立的 `Param`（例如 `<role>.__scales`），不在 `TensorEncoding` 中隐式携带。`sl-core` 当前只执行稠密参数，遇到非稠密 `Param` 会在 `Engine::build` 返回 `UnsupportedEncoding`；因此量化的可执行支持必须先由 backend 提供量化算子，再把该类组合加入认证矩阵。
+
 ## 4. 参数角色命名
 
 角色路径是 Adapter 与 `sl-core` 之间唯一的稳定标识，必须满足：

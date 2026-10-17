@@ -90,7 +90,7 @@ fn submit_step(
 
 ### D8：版本策略
 
-- `IR_VERSION = 1`；
+- `IR_VERSION = 1`（后续因量化存储编码扩展提升到 2，见 ARCH-0004 §12）；
 - 增删 `OpCode`、修改 `Signature` 或字段含义、修改 `MemoryPlan` 不变量、修改绑定结构，都要提升 `IR_VERSION`；
 - `OpCode` 判别值永不复用，删除算子保留墓碑；
 - backend 必须声明 `ir_version`，且 match 必须带 catch-all，保证新算子对旧 backend 安全失败。

@@ -81,7 +81,7 @@ cargo run -p starlight-runtime -- run --config /tmp/runtime.json --input-ids 1,2
 {
   "engine": "starlight",
   "engine_version": "0.1.0",
-  "ir_version": 1,
+  "ir_version": 2,
   "runtime_version": "0.1.0",
   "backend": "cpu",
   "architectures": ["fixture"],
