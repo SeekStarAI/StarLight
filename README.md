@@ -94,7 +94,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 | `sl-ir` | submodule | 图 IR、算子契约、量化存储编码、静态内存计划、设备能力与绑定 ABI | **已实现**：数据类型、签名/state/编码校验、`ProgramBuilder`；32 个测试；零依赖、可 `no_std` |
 | `sl-model` | submodule | 格式无关的模型包、张量元数据与格式读取 | **已实现 Safetensors reader**；6 个测试；GGUF/ONNX/写入能力未实现 |
 | `sl-precision` | submodule | 量化、反量化与精度转换工具 | **已实现**对称分组 INT4/INT8 与 `sl-quantize` CLI；5 个测试 |
-| `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **已实现 llama-dense**；16 个测试；无 CLI/服务 |
+| `sl-model-adapters` | submodule | 模型家族 lowering 为 `Program` 与权重绑定 | **已实现 llama-dense**；17 个测试；无 CLI/服务 |
 | `sl-graph` | submodule | 将 `Program` 具体化为 `CommandBuffer`：能力校验、分解、内存规划 | **已实现 `compile` 流水线**；22 个测试 |
 | `sl-device` | submodule | 设备、缓冲区、上传/下载与单算子分发契约 | **已实现细粒度 `Device` 契约**；3 个测试 |
 | `sl-core` | submodule | 装配 `CommandBuffer`、权重与设备，提供 `Engine::build/step` | **已实现**；9 个测试 |
@@ -166,7 +166,7 @@ StarLight/
 4. **命令流执行**：`backend-cpu` 的参考执行器可以执行手工构造并通过校验的 `CommandBuffer`，覆盖全部 18 个 `OpCode`，包括 `CausalAttention`、`SwiGlu`、`RmsNormMatMul`。执行路径无 `unsafe`、无堆分配。
 5. **图编译**：`sl-graph::compile` 完成符号维具体化、能力校验、`SwiGlu`/`RmsNormMatMul` 分解、生命周期着色与 `CommandBuffer` 生成；22 个测试。
 6. **端到端 token-ID 路径**：`starlight-runtime run` 把 fixture `Program` 编译后交给 `sl-core::Engine`，通过 `CpuDevice` 执行并输出 logits；与独立 f64 实现比对，容差 `1e-5`。
-7. **模型 lowering**：`sl-model-adapters` 的 `llama`/`dense` 家族把 `ModelBundle` 转成 prefill/decode `Program`，覆盖 GQA、NeoX RoPE、`CausalAttention`、SwiGLU 与 KV state；16 个测试。
+7. **模型 lowering**：`sl-model-adapters` 的 `llama`/`dense` 家族把 `ModelBundle` 转成 prefill/decode `Program`，覆盖 GQA、NeoX RoPE、`CausalAttention`、SwiGLU 与 KV state；按 `families/<family>/<version>/` 组织；17 个测试。
 
 ### 7.2 只有骨架或设计的能力
 
@@ -199,7 +199,7 @@ token IDs ──> ... ──> sl-graph::compile ──> CommandBuffer ──> En
 
 | 项目 | 状态 |
 | --- | --- |
-| 单元测试 | **207 个**：`sl-ir` 32、`sl-graph` 22、`sl-model-adapters` 16、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
+| 单元测试 | **208 个**：`sl-ir` 32、`sl-graph` 22、`sl-model-adapters` 17、`backend-cpu` 71、`starlight-runtime` 43、`sl-core` 9、`sl-device` 3、`sl-model` 6、`sl-precision` 5 |
 | `cargo clippy --workspace --all-targets -D warnings` | 通过 |
 | `cargo fmt --all --check` | 通过 |
 | `cargo check -p sl-ir --no-default-features` | 通过 |

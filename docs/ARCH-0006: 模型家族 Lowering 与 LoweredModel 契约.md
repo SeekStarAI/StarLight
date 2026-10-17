@@ -48,6 +48,23 @@ pub struct LoweringInput<'a> {
 - `limits` 给出 `batch` 与 `seq` 的上界，用于确定 `Program` 中符号维度的声明。
 - 未知 config 字段允许存在，但必须被记录到诊断信息里，便于排查“看起来支持、其实忽略”的情况。
 
+## 2.1 仓库内布局
+
+`sl-model-adapters` 按“家族 / 版本”组织：
+
+```text
+src/
+├── error.rs              # 跨家族共享
+├── model.rs              # LoweredModel / WeightSpec / ProgramIo
+└── families/
+    ├── mod.rs
+    └── llama/
+        ├── mod.rs        # 家族元数据与版本分发
+        └── v1/           # 配置 schema v1 + lowering
+```
+
+家族特有的张量名、配置字段与建图逻辑留在 `families/<family>/<version>/`；只有跨家族契约放在 crate 根。新增家族是**新增目录**，不修改已有家族；新增版本是同一家族下的新版本目录。
+
 ## 3. 输出
 
 ```rust
