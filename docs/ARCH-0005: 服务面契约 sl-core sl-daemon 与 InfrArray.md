@@ -261,7 +261,7 @@ starlight-runtime version                    输出版本
 
 - `describe` 不加载权重，只读配置与元数据；
 - 字段只增不改；未知字段消费方必须忽略；
-- `engine` 是 `starlight` 或 `compatible`，由构建时的 runtime 决定；
+- `engine` 取 `starlight | vllm | tensorrt`，由具体 runtime 实现决定；
 - `ir_version` 用于控制面做兼容检查。
 
 ### 5.3 生命周期
@@ -300,6 +300,34 @@ runtime 协议是插槽，实现如下：
 - 同一 Service 通过 `engine` 字段切换实现，清单其他字段不变；
 - 切换前必须跑契约测试与数值对比，切换后可一键回滚；
 - 任何实现都不得在协议之外暴露私有字段给控制面。
+
+### 5.5 代码位置与依赖
+
+`starlight-runtime` 是**组合根**，放在主仓库 `distros/starlight-runtime/`，与 `starlight-nano`、`starlight-cluster` 平级。它不是 submodule，也不是 `sl-daemon` 的一部分。
+
+它只做装配：
+
+1. 解析 `runtime.toml`；
+2. 调用 `sl-model` 读取模型包；
+3. 调用 `sl-model-adapters` 得到 `Program` 与权重绑定；
+4. 调用 `sl-graph` 编译为 `CommandBuffer`；
+5. 调用 `sl-core` 构建 `Engine`；
+6. 启动 `sl-daemon` 的 HTTP 服务；
+7. 实现 `describe / serve / health / metrics` 与退出码。
+
+依赖方向：
+
+```text
+starlight-runtime → sl-daemon, sl-model, sl-model-adapters, sl-graph, sl-core, backend-*
+```
+
+硬约束：
+
+- `sl-daemon` 不得依赖 `sl-model-adapters` 或任何 backend；它只接收已构建的 `Engine` 或 `ModelLoader`；
+- `starlight-runtime` 不得包含算子、tokenizer 算法或 HTTP 协议实现——这些分别属于 backend、`sl-tokenizer` 与 `sl-daemon`；
+- `sl-tokenizer` 就绪前，runtime 只能接受 token ID 输入，不能提供文本 OpenAI 接口。
+
+当前阻塞：`sl-model-adapters` 尚无 Cargo 包，`sl-graph`、`sl-core`、`sl-device` 尚未实现，因此该 crate 现在只能建立骨架与契约测试，不能真实推理。
 
 ## 6. InfrArray 如何配合
 

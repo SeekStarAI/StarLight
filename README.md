@@ -103,6 +103,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 | `sl-daemon` | submodule | 请求生命周期、批处理、OpenAI 协议、流式 | **骨架**：空 `main` |
 | `starlight-nano` | 主仓库 | 端侧发行版装配入口 | **空壳**：`main` 为空 |
 | `starlight-cluster` | 主仓库 | 集群发行版装配入口 | **空壳**：`main` 为空 |
+| `starlight-runtime` | 主仓库（规划） | 服务运行时组合根：装配 daemon、模型、Adapter、图编译与后端 | **规划**：尚未建立 |
 | 分布式通信 | 未建立 | 跨设备/跨节点通信 | **未开始** |
 
 ## 5. 发行版、运行时与产品
@@ -117,6 +118,7 @@ StarLight 解决的是一组相互独立、但必须协同的问题：
 
 - **StarLight-Nano**：面向端侧、AIPC 与嵌入式环境，目标是轻量、进程内执行。
 - **StarLight-Cluster**：面向服务器与集群，目标是组合 `sl-daemon`、设备后端与后续通信组件。
+- **StarLight-Runtime**（`distros/starlight-runtime`，规划）：通用服务运行时组合根，装配 `sl-daemon`、模型加载、Adapter、图编译与后端，对外暴露 runtime 进程协议。它不是 submodule，也不属于 `sl-daemon`。
 - **InfrArray**：以 StarLight 为引擎之一的独立商业产品，负责节点纳管、放置、服务编排、网关与 UI。它**不是本仓库的发行版，也不是 submodule**；首发使用 vLLM / TensorRT-LLM 运行时，StarLight 按认证矩阵逐格替换。详见 [PRODUCT-0001](<docs/PRODUCT-0001: InfrArray 产品规划.md>) 与 [ARCH-0005](<docs/ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>)。
 
 ## 6. 仓库结构
@@ -137,7 +139,8 @@ StarLight/
 │   └── sl-daemon/            # 服务进程与请求编排（submodule，骨架）
 ├── distros/
 │   ├── starlight-nano/       # 端侧发行版入口（空壳）
-│   └── starlight-cluster/    # 集群发行版入口（空壳）
+│   ├── starlight-cluster/    # 集群发行版入口（空壳）
+│   └── starlight-runtime/    # 服务运行时组合根（规划）
 ├── docs/                     # 架构、决策记录、产品规划
 ├── tests/
 │   └── golden-baselines/     # 数值基准目录（尚无基准数据）
@@ -170,6 +173,7 @@ StarLight/
 - `backend-vulkan`：无 Vulkan 实现；
 - `sl-model-adapters`：无 Cargo 包，无任何模型家族；
 - `starlight-nano` / `starlight-cluster`：无 CLI/SDK 管线；
+- `starlight-runtime`：尚未建立，代码位置与装配职责见 ARCH-0005 §5.5；
 - 分布式通信：未建立。
 
 ### 7.3 尚未打通的端到端链路
