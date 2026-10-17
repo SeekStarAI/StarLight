@@ -57,13 +57,17 @@ src/
 ├── error.rs              # 跨家族共享
 ├── model.rs              # LoweredModel / WeightSpec / ProgramIo
 └── families/
+    ├── README.md         # 家族目录索引与状态定义
     ├── mod.rs
-    └── llama/
-        ├── mod.rs        # 家族元数据与版本分发
-        └── v1/           # 配置 schema v1 + lowering
+    ├── llama/
+    │   ├── README.md     # 家族说明与常见型号
+    │   ├── models.toml   # 机器可读型号目录
+    │   ├── mod.rs        # 家族元数据与版本分发
+    │   └── v1/           # 配置 schema v1 + lowering
+    └── qwen/             # 未实现家族：README.md + models.toml
 ```
 
-家族特有的张量名、配置字段与建图逻辑留在 `families/<family>/<version>/`；只有跨家族契约放在 crate 根。新增家族是**新增目录**，不修改已有家族；新增版本是同一家族下的新版本目录。
+家族特有的张量名、配置字段与建图逻辑留在 `families/<family>/<version>/`；只有跨家族契约放在 crate 根。未实现的家族先提供 `README.md` + `models.toml`，不注册为 Rust 模块。新增家族是**新增目录**，不修改已有家族；新增版本是同一家族下的新版本目录。
 
 ## 3. 输出
 
