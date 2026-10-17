@@ -7,6 +7,7 @@
 **内核：** StarLight（SeekStarAI）
 **一句话：** InfrArray 把一台或多台 GPU 机器，变成一个开箱即用的多模型推理平台。
 **品牌语：** InfrArray, powered by StarLight.
+**前置文档：** [ARCH-0002](<ARCH-0002: 模块边界与发行版业务管线契约.md>)、[ARCH-0004](<ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>)、[ARCH-0005](<ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>)、[RFC-0002](<RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>)
 
 > 本文是产品规划，不是能力清单。StarLight 内核的当前实现状态以主 README 和各 crate 文档为准；本文中“v1 必须”“v1 不做”是约束，不是愿望。
 
@@ -311,7 +312,7 @@ spec:
 │  Control API  ── 清单校验 / 版本 / 鉴权 / 审计                  │
 │  Controller   ── 调度 / 期望状态收敛 / 漂移检测                 │
 │  Hub          ── HF 下载 / 校验 / 缓存 / 量化派生               │
-│  Gateway      ── OpenAI 兼容 / key / 配额 / 用量                │
+│  Gateway      ── 路由 / key / 配额 / 用量（协议透传）            │
 │  Metadata     ── SQLite（self-hosted）/ Postgres（cloud）       │
 └───────────────┬───────────────────────────────┬───────────────┘
                 │ mTLS，Agent 主动外连            │
@@ -333,7 +334,7 @@ spec:
 | `infrarray-controller` | 放置、收敛、重启、漂移检测 | 不解析模型文件 |
 | `infrarray-agent` | NVML 扫描、进程监管、端口、缓存、健康 | 不做跨节点调度 |
 | `infrarray-hub` | HF 下载、断点续传、哈希、许可证检查 | 不做推理 |
-| `infrarray-gateway` | OpenAI 协议、路由、密钥、配额 | 不做推理 |
+| `infrarray-gateway` | 多服务路由、密钥、配额、计量；透传 OpenAI 协议 | 不实现 OpenAI 协议、不做 tokenize/采样 |
 | `infrarray-runtime` | 启动并监管引擎进程 | 不含模型逻辑 |
 
 ### 8.2 控制循环
@@ -429,6 +430,8 @@ v1 的 UI 必须明确写出“当前为单卡执行”，避免用户误以为�
 ## 11. 服务与 API
 
 ### 11.1 OpenAI 兼容面
+
+**协议由 `starlight-runtime`（即 `sl-daemon`）实现，InfrArray Gateway 只做路由与鉴权后转发**，详见 ARCH-0005。
 
 ```text
 GET  /v1/models
@@ -553,6 +556,8 @@ POST /v1/embeddings
 | 需求 | 用途 | 优先级 |
 | --- | --- | --- |
 | `starlight-runtime` 可执行文件与 describe/serve/health/metrics 协议 | Agent 拉起引擎 | P0 |
+| `sl-daemon` 的 OpenAI 兼容服务（协议只实现一次） | 推理 API | P0 |
+| `sl-tokenizer`（encode/decode，基于模型附属资产） | 文本请求 | P0 |
 | `Engine`/`Session`/`step` 稳定 API | 运行时内部 | P0 |
 | 首个 dense 7B–14B 家族端到端 | M2 认证 | P0 |
 | 家族内存估算元数据（层数、KV 维度、激活系数） | 放置算法 | P1 |
