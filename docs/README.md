@@ -6,6 +6,7 @@
 - [ARCH-0005：服务面契约 sl-core、sl-daemon 与 InfrArray](<ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>)：四层服务职责、Engine 与 daemon 契约、`starlight-runtime` 进程协议，以及 InfrArray 如何在不链接内核的前提下接管服务。
 - [ARCH-0006：模型家族 Lowering 与 LoweredModel 契约](<ARCH-0006: 模型家族 Lowering 与 LoweredModel 契约.md>)：模型家族 Adapter 的输入输出、`LoweredModel` 结构、参数角色命名、prefill/decode 切分与 v1 支持矩阵。
 - [ARCH-0007：Graph / Core / Runtime 三线施工方案](<ARCH-0007: Graph Core Runtime 三线施工方案.md>)：冻结 `sl-device`、`sl-core`、`sl-graph` 与 runtime 的接口、文件归属、并行顺序与端到端验收。
+- [ARCH-0008：推理基础设施能力矩阵与缺口清单](<ARCH-0008: 推理基础设施能力矩阵与缺口清单.md>)：逐层列出已具备/部分具备/缺失的推理基础设施，给出模型家族映射、缺口 ID、优先级与推荐顺序。
 - [PHIL-0001：为什么将 StarLight 构建为“推理领域的 GNU/Linux”？](<PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>)：模块化与发行版设计哲学。
 - [RFC-0001：系统工程与架构规划草案](<RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)：早期架构目标与任务拆分；其中的规划不代表当前实现状态。
 - [RFC-0002：采纳 sl-ir 作为图 IR 与设备命令 ABI](<RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>)：新增 ABI crate、修订模块依赖与后端 trait 的决策记录。

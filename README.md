@@ -176,6 +176,7 @@ StarLight/
 - `backend-vulkan`：无 Vulkan 实现；
 - `starlight-nano` / `starlight-cluster`：无 CLI/SDK 管线；
 - 分布式通信：未建立。
+- 完整的能力矩阵与缺口清单见 [ARCH-0008](<docs/ARCH-0008: 推理基础设施能力矩阵与缺口清单.md>)。
 
 ### 7.3 已打通与未打通的链路
 
@@ -265,6 +266,8 @@ cargo check -p sl-ir --no-default-features
 | [ARCH-0004](<docs/ARCH-0004: 计算图 IR 与设备命令 ABI 契约.md>) | `sl-ir`、两层 IR、算子契约、能力协商、内存计划 |
 | [ARCH-0005](<docs/ARCH-0005: 服务面契约 sl-core sl-daemon 与 InfrArray.md>) | `sl-core` / `sl-daemon` / runtime 协议与控制面配合 |
 | [ARCH-0006](<docs/ARCH-0006: 模型家族 Lowering 与 LoweredModel 契约.md>) | 模型家族 Adapter 与 `LoweredModel` |
+| [ARCH-0007](<docs/ARCH-0007: Graph Core Runtime 三线施工方案.md>) | Graph / Core / Runtime 三线施工与接口冻结 |
+| [ARCH-0008](<docs/ARCH-0008: 推理基础设施能力矩阵与缺口清单.md>) | 推理基础设施能力矩阵、模型家族缺口与优先级 |
 | [RFC-0002](<docs/RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>) | 采纳 `sl-ir` 的决策记录 |
 | [PRODUCT-0001](<docs/PRODUCT-0001: InfrArray 产品规划.md>) | InfrArray 产品规划与运行时可替换策略 |
 | [PHIL-0001](<docs/PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>) | 模块化与发行版设计哲学 |
