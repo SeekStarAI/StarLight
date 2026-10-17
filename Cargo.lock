@@ -113,8 +113,7 @@ name = "sl-core"
 version = "0.1.0"
 dependencies = [
  "sl-device",
- "sl-graph",
- "sl-precision",
+ "sl-ir",
 ]
 
 [[package]]
@@ -128,10 +127,16 @@ dependencies = [
 [[package]]
 name = "sl-device"
 version = "0.1.0"
+dependencies = [
+ "sl-ir",
+]
 
 [[package]]
 name = "sl-graph"
 version = "0.1.0"
+dependencies = [
+ "sl-ir",
+]
 
 [[package]]
 name = "sl-ir"

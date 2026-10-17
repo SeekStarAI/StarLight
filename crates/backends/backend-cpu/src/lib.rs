@@ -11,12 +11,16 @@
 //!
 //! [`executor`] contains a reference interpreter that runs an
 //! [`sl_ir::CommandBuffer`] through those kernels. It is a semantic baseline,
-//! not a device backend.
+//! not a device backend. [`device::CpuDevice`] is the `sl-device` backend: it
+//! owns buffers and dispatches one operator at a time, also through these
+//! kernels.
 
 #![forbid(unsafe_code)]
 
+pub mod device;
 pub mod executor;
 pub mod reference;
 
+pub use device::CpuDevice;
 pub use executor::{execute, BindingTable, BufferStore, ExecutionError, ScalarStore, SCRATCHPAD};
 pub use reference::KernelError;

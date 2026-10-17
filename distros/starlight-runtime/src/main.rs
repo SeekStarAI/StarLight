@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright (c) 2026 SeekStarAI and StarLight Contributors
 
+//! `starlight-runtime` executable entry point.
+
 fn main() {
-    println!("starlight-runtime {}", starlight_runtime::VERSION);
+    std::process::exit(starlight_runtime::runtime::entry(std::env::args().skip(1)));
 }
