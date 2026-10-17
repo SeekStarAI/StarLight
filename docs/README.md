@@ -7,4 +7,4 @@
 - [PHIL-0001：为什么将 StarLight 构建为“推理领域的 GNU/Linux”？](<PHIL-0001: 为什么我们将 StarLight 构建为“推理领域的 GNU Linux”？.md>)：模块化与发行版设计哲学。
 - [RFC-0001：系统工程与架构规划草案](<RFC-0001: StarLight 系统工程与架构规划草案 (2026-10-16).md>)：早期架构目标与任务拆分；其中的规划不代表当前实现状态。
 - [RFC-0002：采纳 sl-ir 作为图 IR 与设备命令 ABI](<RFC-0002: 采纳 sl-ir 作为图 IR 与设备命令 ABI.md>)：新增 ABI crate、修订模块依赖与后端 trait 的决策记录。
-- [PRODUCT-0001：StarLight Deck 产品提案](<PRODUCT-0001: StarLight Deck 产品提案.md>)：以 StarLight 为内核的图形化推理基础设施控制面，含名称核查、节点模型、部署清单、路线图与内核需求。
+- [PRODUCT-0001：InfrArray 产品规划](<PRODUCT-0001: InfrArray 产品规划.md>)：以 StarLight 为默认引擎的图形化推理基础设施控制面，含产品形态、节点体系、部署清单、架构、路线图与内核需求。
